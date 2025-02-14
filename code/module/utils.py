@@ -19,9 +19,7 @@ def data_open(path):
             - List of DataFrames corresponding to each sheet.
     """
     all_sheets = pd.read_excel(path, sheet_name=None)
-    results = ([],[])
+    results = {}
     for sheet_name, df in all_sheets.items():
-        results[0].append(sheet_name)
-        results[1].append(df)
-
+        results[sheet_name] = df
     return results

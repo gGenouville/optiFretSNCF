@@ -2,7 +2,7 @@
 module description
 """
 
-import pandas as pd 
+import pandas as pd
 
 
 def data_open(path):

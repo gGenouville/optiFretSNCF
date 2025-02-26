@@ -1,11 +1,11 @@
 """
-module description
+module docstring
 """
 
 import pandas as pd
 
 
-def data_open(path):
+def data_open(path:str)->dict[str,pd.DataFrame]:
     """
     Reads an Excel file from the specified path and 
     returns a dictionary of sheet names and their 

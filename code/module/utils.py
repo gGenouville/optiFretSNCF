@@ -1,11 +1,23 @@
 """
-module description
+module docstring
 """
 
 import pandas as pd
 
+class ColonnesInstance:
+    """
+    Class to store the names of the columns in the instance data.
+    """
+    CHANTIER = 'Chantiers'
+    MACHINES = 'Machines'
+    CORRESPONDANCES = 'Correspondances'
+    TACHES_HUMAINES = 'Taches humaines'
+    SILLON_ARRIVEE = 'Sillons arrivee'
+    SILLON_DEPART = 'Sillons depart'
+    ROULEMENTS = 'Roulements agents'
 
-def data_open(path):
+
+def data_open(path:str)->dict[str,pd.DataFrame]:
     """
     Reads an Excel file from the specified path and 
     returns a dictionary of sheet names and their 
@@ -23,3 +35,11 @@ def data_open(path):
     for sheet_name, df in all_sheets.items():
         results[sheet_name] = df
     return results
+
+
+def init_model():
+    ...
+
+def init_contr():
+    ...
+

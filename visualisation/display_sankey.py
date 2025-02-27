@@ -23,9 +23,8 @@ def get_link_id(arrival_train_id, departure_train_id):
 
 
 if __name__ == "__main__":
-    input_directory_path = r"..\données_MAJ"
-    # input_file_name = "instance_WPY_simple.xlsx"
-    input_file_name = "instance_WPY_realiste_jalon1.xlsx"
+    input_directory_path = r"D:\Bureau2\CS\Cours\2A\ST7\Projet\optiFretSNCF\visualisation"
+    input_file_name = "exemple_sortie.xlsx"
     input_file_path = os.path.join(input_directory_path, input_file_name)
 
     filter_on_departure_date = True

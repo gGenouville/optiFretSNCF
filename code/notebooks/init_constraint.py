@@ -1,5 +1,5 @@
 from gurobipy import *
-from creation_dictionnaires import creation_listes_temps_arrivee_depart
+from creation_dictionnaires import *
 
 # Charger le fichier Excel
 file = "instance_WPY_realiste_jalon1.xlsx"

@@ -22,6 +22,11 @@ class Colonne :
     """
     N_TRAIN_ARRIVEE = 'n°Train arrivee'
     N_TRAIN_DEPART = 'n°Train depart'
+    ID_TRAIN_DEPART = 'ID Train départ'
+    ID_TRAIN_ARRIVEE = 'ID Train arrivée'
+    DATE_ARRIVEE = "Jour arrivee"
+    DATE_DEPART = "Jour arrivee"
+    ID_WAGON = "Id wagon"
 
 def data_open(path:str)->dict[str,pd.DataFrame]:
     """
@@ -48,15 +53,36 @@ def get_link_id(arrival_train_id, departure_train_id):
     """
     return f"{arrival_train_id} {departure_train_id}"
 
-def init_dict_correspondance(df_correspondance : pd.dataFrame)-> dict:
-    # completer
+def init_dict_correspondance(df_correspondance : pd.DataFrame)-> dict:
+    input_df=df_correspondance.astype(str)
+
+    input_df[Colonne.ID_TRAIN_ARRIVEE] = (
+        input_df[Colonne.N_TRAIN_ARRIVEE]
+        + "_"
+        + pd.to_datetime(input_df[Colonne.DATE_ARRIVEE], format="%d/%m/%Y", errors="coerce").dt.strftime('%d')
+    )
+
+    input_df[Colonne.ID_TRAIN_DEPART] = (
+            input_df[Colonne.N_TRAIN_DEPART]
+            + "_"
+            + pd.to_datetime(input_df[Colonne.DATE_DEPART], format="%d/%m/%Y", errors="coerce").dt.strftime('%d')
+    )
+    d={}
+    for departure_train_id in input_df[Colonne.ID_TRAIN_DEPART]:
+        d[departure_train_id]=[]
+    for arrival_train_id, departure_train_id in zip(
+        input_df[Colonne.ID_TRAIN_ARRIVEE],
+        input_df[Colonne.ID_TRAIN_DEPART],
+    ):
+        d[departure_train_id].append(arrival_train_id)
+    return d
 
     
 
 
-def init_model():
-    ...
+    def init_model():
+        ...
 
-def init_contr():
-    ...
+    def init_contr():
+        ...
 

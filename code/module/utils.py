@@ -4,9 +4,9 @@ module docstring
 
 import pandas as pd
 
-class ColonnesInstance:
+class Feuille:
     """
-    Class to store the names of the columns in the instance data.
+    Class to store the names of the shits.
     """
     CHANTIER = 'Chantiers'
     MACHINES = 'Machines'
@@ -16,6 +16,12 @@ class ColonnesInstance:
     SILLON_DEPART = 'Sillons depart'
     ROULEMENTS = 'Roulements agents'
 
+class Colonne :
+    """
+    Class to store the names of the columns in a df
+    """
+    N_TRAIN_ARRIVEE = 'n°Train arrivee'
+    N_TRAIN_DEPART = 'n°Train depart'
 
 def data_open(path:str)->dict[str,pd.DataFrame]:
     """
@@ -35,6 +41,17 @@ def data_open(path:str)->dict[str,pd.DataFrame]:
     for sheet_name, df in all_sheets.items():
         results[sheet_name] = df
     return results
+
+def get_link_id(arrival_train_id, departure_train_id):
+    """
+    creates an id for a link
+    """
+    return f"{arrival_train_id} {departure_train_id}"
+
+def init_dict_correspondance(df_correspondance : pd.dataFrame)-> dict:
+    # completer
+
+    
 
 
 def init_model():

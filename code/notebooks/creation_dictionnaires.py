@@ -4,10 +4,6 @@ import sys
 import pandas as pd
 
 
-# Charger le fichier Excel
-file = "instance_WPY_realiste_jalon1.xlsx"
-
-
 def creation_listes_temps_arrivee_depart(file):
     module_path = os.path.abspath(os.path.join('..', 'module'))
     sys.path.append(module_path)
@@ -79,6 +75,3 @@ def creation_listes_temps_arrivee_depart(file):
             t_d[train_id_unique] = minutes_since_ref
 
     return (t_a, t_d)
-
-
-print(creation_listes_temps_arrivee_depart(file))

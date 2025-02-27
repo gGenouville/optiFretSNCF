@@ -25,7 +25,7 @@ class Colonne :
     ID_TRAIN_DEPART = 'ID Train départ'
     ID_TRAIN_ARRIVEE = 'ID Train arrivée'
     DATE_ARRIVEE = "Jour arrivee"
-    DATE_DEPART = "Jour arrivee"
+    DATE_DEPART = "Jour depart"
     ID_WAGON = "Id wagon"
 
 def data_open(path:str)->dict[str,pd.DataFrame]:

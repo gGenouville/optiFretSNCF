@@ -12,7 +12,6 @@ Taches : Constantes et attributs des tâches à effectuer sur les trains.
 Fonctions :
 -----------
 init_model : Initialise le modèle Gurobi avec les contraintes de base.
-contraintes_succession : Ajoute des contraintes de succession entre les tâches.
 """
 
 import gurobipy as grb

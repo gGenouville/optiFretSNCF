@@ -1,4 +1,34 @@
-""" """
+"""
+Module utilitaire pour la gestion des opérations sur les trains.
+
+Ce module fournit des classes et fonctions pour lire et traiter les données
+des sillons, machines et chantiers, ainsi que pour gérer les constantes
+temporelles et les feuilles de calcul. Il inclut des outils pour convertir
+les heures en minutes, calculer les temps écoulés, et gérer les
+indisponibilités des ressources.
+
+Classes :
+---------
+Constantes : Constantes temporelles et autres valeurs fixes.
+Machines : Identifiants des machines utilisées dans les opérations.
+Chantiers : Identifiants des chantiers dans les opérations.
+Feuilles : Noms des feuilles de calcul Excel.
+Colonnes : Noms des colonnes dans les tables de données.
+
+Fonctions :
+-----------
+read_sillon : Lit les feuilles 'Sillons arrivée' et 'Sillons départ'.
+convert_hour_to_minutes : Convertit une heure en minutes depuis minuit.
+init_t_a : Crée un dictionnaire des temps d'arrivée en minutes.
+init_t_d : Crée un dictionnaire des temps de départ en minutes.
+init_dict_correspondance : Crée un dictionnaire des correspondances.
+dernier_depart : Calcule le temps écoulé jusqu'au dernier départ.
+convertir_en_minutes : Convertit les plages d'indisponibilité en minutes.
+traitement_doublons : Supprime les doublons consécutifs dans une liste.
+creation_limites_machines : Gère les plages d'indisponibilité des machines.
+creation_limites_chantiers : Gère les plages d'indisponibilité des chantiers.
+base_time : Définit l'origine des temps pour les calculs.
+"""
 
 import pandas as pd
 import re
@@ -6,26 +36,76 @@ from itertools import chain
 
 
 class Constantes:
-    """constantes"""
+    """
 
-    # Définition de la base temporelle (08/08/2022 à minuit)
+
+    #-------- ne devrait bientot plus être utilisé --------#
+
+
+    Constantes utilisées dans le module.
+
+    Attributs :
+    -----------
+    BASE_TIME : pd.Timestamp
+        Date de référence pour les calculs temporels.
+    """
+
     BASE_TIME = pd.Timestamp("2022-08-08 00:00")
 
 
 class Machines:
+    """
+    Identifiants des machines utilisées dans les opérations.
+
+    Attributs :
+    -----------
+    DEB : str
+        Identifiant pour les machines de début.
+    FOR : str
+        Identifiant pour les machines de formation.
+    DEG : str
+        Identifiant pour les machines de dégagement.
+    """
+
     DEB = "DEB"
     FOR = "FOR"
     DEG = "DEG"
 
 
 class Chantiers:
+    """
+    Identifiants des chantiers dans les opérations.
+
+    Attributs :
+    -----------
+    REC : str
+        Identifiant pour les chantiers de réception.
+    FOR : str
+        Identifiant pour les chantiers de formation.
+    DEP : str
+        Identifiant pour les chantiers de départ.
+    """
+
     REC = "REC"
     FOR = "FOR"
     DEP = "DEP"
 
 
 class Feuilles:
-    """feuilles des tables"""
+    """
+    Noms des feuilles de calcul Excel utilisées.
+
+    Attributs :
+    -----------
+    SILLONS_ARRIVEE : str
+        Nom de la feuille des sillons d'arrivée.
+    SILLONS_DEPART : str
+        Nom de la feuille des sillons de départ.
+    MACHINES : str
+        Nom de la feuille des machines.
+    CHANTIERS : str
+        Nom de la feuille des chantiers.
+    """
 
     SILLONS_ARRIVEE = "Sillons arrivee"
     SILLONS_DEPART = "Sillons depart"
@@ -34,7 +114,40 @@ class Feuilles:
 
 
 class Colonnes:
-    """colonnes des tables"""
+    """
+    Noms des colonnes dans les tables de données.
+
+    Attributs :
+    -----------
+    SILLON_JARR : str
+        Colonne du jour d'arrivée.
+    SILLON_HARR : str
+        Colonne de l'heure d'arrivée.
+    SILLON_JDEP : str
+        Colonne du jour de départ.
+    SILLON_HDEP : str
+        Colonne de l'heure de départ.
+    SILLON_NUM_TRAIN : str
+        Colonne du numéro de train.
+    N_TRAIN_ARRIVEE : str
+        Colonne du numéro de train d'arrivée.
+    N_TRAIN_DEPART : str
+        Colonne du numéro de train de départ.
+    ID_TRAIN_DEPART : str
+        Colonne de l'ID du train de départ.
+    ID_TRAIN_ARRIVEE : str
+        Colonne de l'ID du train d'arrivée.
+    DATE_ARRIVEE : str
+        Colonne de la date d'arrivée.
+    DATE_DEPART : str
+        Colonne de la date de départ.
+    ID_WAGON : str
+        Colonne de l'ID du wagon.
+    INDISPONIBILITE : str
+        Colonne des indisponibilités.
+    INDISPONIBILITE_MINUTES : str
+        Colonne des indisponibilités en minutes.
+    """
 
     SILLON_JARR = "JARR"
     SILLON_HARR = "HARR"
@@ -54,8 +167,22 @@ class Colonnes:
     INDISPONIBILITE_MINUTES = "Indisponibilites etendues en minutes"
 
 
-def read_sillon(file: str) -> (pd.DataFrame, pd.DataFrame):
-    """Lire les feuilles 'Sillons arrivée' et 'Sillons départ'"""
+def read_sillon(file: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Lit les feuilles 'Sillons arrivée' et 'Sillons départ' d'un fichier Excel.
+
+    Convertit les dates des colonnes 'JARR' et 'JDEP' en datetime64.
+
+    Paramètres :
+    -----------
+    file : str
+        Chemin du fichier Excel contenant les données des sillons.
+
+    Retourne :
+    ----------
+    tuple[pd.DataFrame, pd.DataFrame]
+        DataFrames des sillons d'arrivée et de départ.
+    """
     df_sillons_arr = pd.read_excel(
         file, sheet_name=Feuilles.SILLONS_ARRIVEE
     )  # Arrivées
@@ -75,7 +202,19 @@ def read_sillon(file: str) -> (pd.DataFrame, pd.DataFrame):
 
 
 def convert_hour_to_minutes(hour_str: str) -> int | None:
-    """Convertit une heure HH:MM en minutes depuis minuit."""
+    """
+    Convertit une heure au format HH:MM en minutes depuis minuit.
+
+    Paramètres :
+    -----------
+    hour_str : str
+        Chaîne représentant l'heure au format HH:MM.
+
+    Retourne :
+    ----------
+    int | None
+        Nombre de minutes depuis minuit, ou None si la conversion échoue.
+    """
     if pd.isna(hour_str) or not isinstance(hour_str, str):
         return None  # Valeur invalide
     try:
@@ -85,9 +224,24 @@ def convert_hour_to_minutes(hour_str: str) -> int | None:
         return None  # Si le format est incorrect
 
 
-# Traitement des arrivées
 def init_t_a(df_sillons_arr: pd.DataFrame, print_bool: bool = True) -> dict:
-    """creer t_a"""
+    """
+    Crée un dictionnaire t_a contenant les minutes écoulées depuis une date de
+    référence pour chaque train d'arrivée.
+
+    Paramètres :
+    -----------
+    df_sillons_arr : pd.DataFrame
+        DataFrame contenant les données des sillons d'arrivée.
+    print_bool : bool, optionnel
+        Si True, affiche les informations de chaque train traité.
+
+    Retourne :
+    ----------
+    dict
+        Dictionnaire avec des identifiants uniques de trains comme clés et
+        les minutes écoulées depuis la date de référence comme valeurs.
+    """
     t_a = {}
     for _, row in df_sillons_arr.iterrows():
         train_id = row[Colonnes.SILLON_NUM_TRAIN]
@@ -114,9 +268,24 @@ def init_t_a(df_sillons_arr: pd.DataFrame, print_bool: bool = True) -> dict:
     return t_a
 
 
-# Traitement des départs
 def init_t_d(df_sillons_dep: pd.DataFrame, print_bool: bool = True) -> dict:
-    """creer t_d"""
+    """
+    Crée un dictionnaire t_d contenant les minutes écoulées depuis une date de
+    référence pour chaque train de départ.
+
+    Paramètres :
+    -----------
+    df_sillons_dep : pd.DataFrame
+        DataFrame contenant les données des sillons de départ.
+    print_bool : bool, optionnel
+        Si True, affiche les informations de chaque train traité.
+
+    Retourne :
+    ----------
+    dict
+        Dictionnaire avec des identifiants uniques de trains comme clés et
+        les minutes écoulées depuis la date de référence comme valeurs.
+    """
     t_d = {}
     # Traitement des départs
     for _, row in df_sillons_dep.iterrows():
@@ -146,7 +315,22 @@ def init_t_d(df_sillons_dep: pd.DataFrame, print_bool: bool = True) -> dict:
 
 
 def init_dict_correspondance(df_correspondance: pd.DataFrame) -> dict:
-    """Dictionnaires des correspondances"""
+    """
+    Crée un dictionnaire des correspondances entre les trains d'arrivée et de
+    départ.
+
+    Paramètres :
+    -----------
+    df_correspondance : pd.DataFrame
+        DataFrame contenant les informations de correspondance entre les trains.
+
+    Retourne :
+    ----------
+    dict
+        Dictionnaire où les clés sont les identifiants des trains de départ et
+        les valeurs sont des listes d'identifiants des trains d'arrivée
+        correspondants.
+    """
     input_df = df_correspondance.astype(str)
 
     input_df[Colonnes.ID_TRAIN_ARRIVEE] = (
@@ -176,6 +360,23 @@ def init_dict_correspondance(df_correspondance: pd.DataFrame) -> dict:
 
 
 def dernier_depart(df_sillons_dep, base_time_value):
+    """
+    Calcule le temps en minutes écoulé depuis une date de référence jusqu'au
+    dernier départ dans le DataFrame.
+
+    Paramètres :
+    -----------
+    df_sillons_dep : pd.DataFrame
+        DataFrame contenant les données des sillons de départ.
+    base_time_value : pd.Timestamp
+        Date de référence pour le calcul des minutes écoulées.
+
+    Retourne :
+    ----------
+    float
+        Temps en minutes écoulé depuis la date de référence jusqu'au dernier
+        départ.
+    """
     # Convertir les dates et heures en datetime
     df_sillons_dep["Datetime"] = pd.to_datetime(
         df_sillons_dep["JDEP"].astype(str)
@@ -199,7 +400,27 @@ def convertir_en_minutes(
     file,
     id_file,
 ):
-    """Fonction pour convertir une plage d'indisponibilité en minutes depuis J1 00:00"""
+    """
+    Convertit une plage d'indisponibilité en minutes depuis une date de
+    référence, et étend ces plages hebdomadairement jusqu'à dépasser l'heure
+    du dernier train.
+
+    Paramètres :
+    -----------
+    indisponibilites : str
+        Chaîne contenant les plages d'indisponibilité au format
+        (jour, HH:MM-HH:MM).
+    file : str
+        Chemin du fichier Excel contenant les données des sillons.
+    id_file : int
+        Identifiant du fichier pour déterminer la date de référence.
+
+    Retourne :
+    ----------
+    list
+        Liste de tuples représentant les plages d'indisponibilité en minutes
+        depuis la date de référence.
+    """
 
     _, df_sillons_dep = read_sillon(file)
     pattern = r"\((\d+),\s*(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})\)"
@@ -248,7 +469,19 @@ def convertir_en_minutes(
 
 
 def traitement_doublons(liste):
-    """retir doublons de liste"""
+    """
+    Supprime les doublons consécutifs dans une liste de listes.
+
+    Paramètres :
+    -----------
+    liste : list
+        Liste contenant des sous-listes d'éléments à traiter.
+
+    Retourne :
+    ----------
+    list
+        Liste avec les doublons consécutifs retirés dans chaque sous-liste.
+    """
     resultat = []
     for elmt in liste:
         resultat_int = []
@@ -263,8 +496,24 @@ def traitement_doublons(liste):
     return resultat
 
 
-def creation_limites_machines(file: str, id_file) -> dict:
-    """Appliquer la conversion à la colonne 'Indisponibilites'"""
+def creation_limites_machines(file: str, id_file: int) -> dict:
+    """
+    Convertit les plages d'indisponibilité des machines en minutes et les
+    organise dans un dictionnaire.
+
+    Paramètres :
+    -----------
+    file : str
+        Chemin du fichier Excel contenant les données des machines.
+    id_file : int
+        Identifiant du fichier pour déterminer la date de référence.
+
+    Retourne :
+    ----------
+    dict
+        Dictionnaire contenant les plages d'indisponibilité en minutes pour
+        chaque machine (DEB, FOR, DEG).
+    """
 
     df_machines = pd.read_excel(file, sheet_name=Feuilles.MACHINES)
 
@@ -294,8 +543,24 @@ def creation_limites_machines(file: str, id_file) -> dict:
     return Limites_machines
 
 
-def creation_limites_chantiers(file: str, id_file) -> dict:
-    """Appliquer la conversion à la colonne 'Indisponibilites'"""
+def creation_limites_chantiers(file: str, id_file: int) -> dict:
+    """
+    Convertit les plages d'indisponibilité des chantiers en minutes et les
+    organise dans un dictionnaire.
+
+    Paramètres :
+    -----------
+    file : str
+        Chemin du fichier Excel contenant les données des chantiers.
+    id_file : int
+        Identifiant du fichier pour déterminer la date de référence.
+
+    Retourne :
+    ----------
+    dict
+        Dictionnaire contenant les plages d'indisponibilité en minutes pour
+        chaque chantier (REC, FOR, DEP).
+    """
 
     df_chantiers = pd.read_excel(file, sheet_name=Feuilles.CHANTIERS)
 
@@ -327,7 +592,20 @@ def creation_limites_chantiers(file: str, id_file) -> dict:
 
 
 def base_time(id_file: int) -> pd.Timestamp:
-    """definit l'origine des temps au premier lundi précédent les evenements de l'instance"""
+    """
+    Définit l'origine des temps au premier lundi précédant les événements de
+    l'instance, en fonction de l'identifiant du fichier.
+
+    Paramètres :
+    -----------
+    id_file : int
+        Identifiant du fichier pour déterminer la date de référence.
+
+    Retourne :
+    ----------
+    pd.Timestamp
+        Date de référence pour le calcul des minutes écoulées.
+    """
     if id_file == 0:
         return pd.Timestamp("2023-05-01 00:00")
     elif id_file == 1:

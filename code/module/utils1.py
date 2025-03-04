@@ -7,14 +7,30 @@ from itertools import chain
 
 class Constantes:
     """constantes"""
+
     # Définition de la base temporelle (08/08/2022 à minuit)
     BASE_TIME = pd.Timestamp("2022-08-08 00:00")
 
 
+class Machines:
+    DEB = "DEB"
+    FOR = "FOR"
+    DEG = "DEG"
+
+
+class Chantiers:
+    REC = "REC"
+    FOR = "FOR"
+    DEP = "DEP"
+
+
 class Feuilles:
-    """ feuilles des tables"""
+    """feuilles des tables"""
+
     SILLONS_ARRIVEE = "Sillons arrivee"
     SILLONS_DEPART = "Sillons depart"
+    MACHINES = "Machines"
+    CHANTIERS = "Chantiers"
 
 
 class Colonnes:
@@ -26,21 +42,26 @@ class Colonnes:
     SILLON_HDEP = "HDEP"
     SILLON_NUM_TRAIN = "n°TRAIN"
 
-    N_TRAIN_ARRIVEE = 'n°Train arrivee'
-    N_TRAIN_DEPART = 'n°Train depart'
-    ID_TRAIN_DEPART = 'ID Train départ'
-    ID_TRAIN_ARRIVEE = 'ID Train arrivée'
+    N_TRAIN_ARRIVEE = "n°Train arrivee"
+    N_TRAIN_DEPART = "n°Train depart"
+    ID_TRAIN_DEPART = "ID Train départ"
+    ID_TRAIN_ARRIVEE = "ID Train arrivée"
     DATE_ARRIVEE = "Jour arrivee"
     DATE_DEPART = "Jour depart"
     ID_WAGON = "Id wagon"
+
+    INDISPONIBILITE = "Indisponibilites"
+    INDISPONIBILITE_MINUTES = "Indisponibilites etendues en minutes"
 
 
 def read_sillon(file: str) -> (pd.DataFrame, pd.DataFrame):
     """Lire les feuilles 'Sillons arrivée' et 'Sillons départ'"""
     df_sillons_arr = pd.read_excel(
-        file, sheet_name=Feuilles.SILLONS_ARRIVEE)  # Arrivées
+        file, sheet_name=Feuilles.SILLONS_ARRIVEE
+    )  # Arrivées
     df_sillons_dep = pd.read_excel(
-        file, sheet_name=Feuilles.SILLONS_DEPART)  # Départs
+        file, sheet_name=Feuilles.SILLONS_DEPART
+    )  # Départs
 
     # Conversion des dates en datetime64
     df_sillons_arr[Colonnes.SILLON_JARR] = pd.to_datetime(
@@ -53,7 +74,6 @@ def read_sillon(file: str) -> (pd.DataFrame, pd.DataFrame):
     return df_sillons_arr, df_sillons_dep
 
 
-# Fonction pour convertir une heure en minutes
 def convert_hour_to_minutes(hour_str: str) -> int | None:
     """Convertit une heure HH:MM en minutes depuis minuit."""
     if pd.isna(hour_str) or not isinstance(hour_str, str):
@@ -73,13 +93,15 @@ def init_t_a(df_sillons_arr: pd.DataFrame, print_bool: bool = True) -> dict:
         train_id = row[Colonnes.SILLON_NUM_TRAIN]
         date_arr = row[Colonnes.SILLON_JARR]
         heure_arr = convert_hour_to_minutes(
-            row[Colonnes.SILLON_HARR])  # Conversion heure → minutes
+            row[Colonnes.SILLON_HARR]
+        )  # Conversion heure → minutes
 
         if pd.notna(date_arr) and heure_arr is not None:
             # Nombre de jours depuis le 08/08
             days_since_ref = (date_arr - Constantes.BASE_TIME).days
-            minutes_since_ref = (days_since_ref * 1440) + \
-                heure_arr  # Ajout des minutes
+            minutes_since_ref = (
+                days_since_ref * 1440
+            ) + heure_arr  # Ajout des minutes
 
             # Création d'un ID unique : Train_ID_Date, car certains trains portant le même ID passent sur des jours différents
             train_id_unique = f"{train_id}_{date_arr.strftime('%d')}"
@@ -101,13 +123,15 @@ def init_t_d(df_sillons_dep: pd.DataFrame, print_bool: bool = True) -> dict:
         train_id = row[Colonnes.SILLON_NUM_TRAIN]
         date_dep = row[Colonnes.SILLON_JDEP]
         heure_dep = convert_hour_to_minutes(
-            row[Colonnes.SILLON_HDEP])  # Conversion heure → minutes
+            row[Colonnes.SILLON_HDEP]
+        )  # Conversion heure → minutes
 
         if pd.notna(date_dep) and heure_dep is not None:
             # Nombre de jours depuis le 08/08
             days_since_ref = (date_dep - Constantes.BASE_TIME).days
-            minutes_since_ref = (days_since_ref * 1440) + \
-                heure_dep  # Ajout des minutes
+            minutes_since_ref = (
+                days_since_ref * 1440
+            ) + heure_dep  # Ajout des minutes
 
             # Création d'un ID unique : Train_ID_Date
             train_id_unique = f"{train_id}_{date_dep.strftime('%d')}"
@@ -128,15 +152,17 @@ def init_dict_correspondance(df_correspondance: pd.DataFrame) -> dict:
     input_df[Colonnes.ID_TRAIN_ARRIVEE] = (
         input_df[Colonnes.N_TRAIN_ARRIVEE]
         + "_"
-        + pd.to_datetime(input_df[Colonnes.DATE_ARRIVEE],
-                         format="%d/%m/%Y", errors="coerce").dt.strftime('%d')
+        + pd.to_datetime(
+            input_df[Colonnes.DATE_ARRIVEE], format="%d/%m/%Y", errors="coerce"
+        ).dt.strftime("%d")
     )
 
     input_df[Colonnes.ID_TRAIN_DEPART] = (
         input_df[Colonnes.N_TRAIN_DEPART]
         + "_"
-        + pd.to_datetime(input_df[Colonnes.DATE_DEPART],
-                         format="%d/%m/%Y", errors="coerce").dt.strftime('%d')
+        + pd.to_datetime(
+            input_df[Colonnes.DATE_DEPART], format="%d/%m/%Y", errors="coerce"
+        ).dt.strftime("%d")
     )
     d = {}
     for departure_train_id in input_df[Colonnes.ID_TRAIN_DEPART]:
@@ -149,23 +175,32 @@ def init_dict_correspondance(df_correspondance: pd.DataFrame) -> dict:
     return d
 
 
-def dernier_depart(df_sillons_dep, base_time):
+def dernier_depart(df_sillons_dep, base_time_value):
     # Convertir les dates et heures en datetime
     df_sillons_dep["Datetime"] = pd.to_datetime(
-        df_sillons_dep["JDEP"].astype(str) + " " + df_sillons_dep["HDEP"].astype(str))
+        df_sillons_dep["JDEP"].astype(str)
+        + " "
+        + df_sillons_dep["HDEP"].astype(str)
+    )
 
     # Trouver l'heure de départ la plus tardive
-    dernier_depart = df_sillons_dep["Datetime"].max()
+    dernier_depart_value = df_sillons_dep["Datetime"].max()
 
     # Calculer l'heure en minutes depuis le jour 1 à 00:00
-    dernier_depart_minutes = (dernier_depart - base_time).total_seconds() / 60
+    dernier_depart_minutes = (
+        dernier_depart_value - base_time_value).total_seconds() / 60
 
     return dernier_depart_minutes
 
-# Fonction pour convertir une plage d'indisponibilité en minutes depuis J1 00:00
 
+def convertir_en_minutes(
+    indisponibilites,
+    file,
+    id_file,
+):
+    """Fonction pour convertir une plage d'indisponibilité en minutes depuis J1 00:00"""
 
-def convertir_en_minutes(indisponibilites, df_sillons_dep):
+    _, df_sillons_dep = read_sillon(file)
     pattern = r"\((\d+),\s*(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})\)"
     plages_originales = []
 
@@ -188,8 +223,10 @@ def convertir_en_minutes(indisponibilites, df_sillons_dep):
     semaine = 0
     while True:
         semaine_offset = semaine * 10080  # 7 jours en minutes
-        nouvelles_plages = [(deb + semaine_offset, fin + semaine_offset)
-                            for deb, fin in plages_originales]
+        nouvelles_plages = [
+            (deb + semaine_offset, fin + semaine_offset)
+            for deb, fin in plages_originales
+        ]
 
         # Vérifier si on a de nouvelles plages avant d'ajouter
         if not nouvelles_plages:
@@ -199,7 +236,7 @@ def convertir_en_minutes(indisponibilites, df_sillons_dep):
         plages_etendues.extend(nouvelles_plages)
 
         # Vérifier si la dernière plage dépasse l'heure du dernier train
-        if nouvelles_plages[-1][1] > dernier_depart(df_sillons_dep, base_time):
+        if nouvelles_plages[-1][1] > dernier_depart(df_sillons_dep, base_time(id_file)):
             break
 
         semaine += 1  # Passer à la semaine suivante
@@ -208,6 +245,7 @@ def convertir_en_minutes(indisponibilites, df_sillons_dep):
 
 
 def traitement_doublons(liste):
+    """retir doublons de liste"""
     resultat = []
     for elmt in liste:
         resultat_int = []
@@ -222,14 +260,22 @@ def traitement_doublons(liste):
     return resultat
 
 
-def creation_limites_machines(df_machines: pd.DataFrame) -> dict:
+def creation_limites_machines(file: str, id_file) -> dict:
+    """Appliquer la conversion à la colonne 'Indisponibilites'"""
 
-    # Appliquer la conversion à la colonne "Indisponibilites"
-    Indisponibilités_machines = df_machines["Indisponibilites etendues en minutes"] = df_machines["Indisponibilites"].astype(
-        str).apply(convertir_en_minutes)
+    df_machines = pd.read_excel(file, sheet_name=Feuilles.MACHINES)
+
+    Indisponibilités_machines = df_machines[
+        Colonnes.INDISPONIBILITE_MINUTES
+    ] = (
+        df_machines[Colonnes.INDISPONIBILITE]
+        .astype(str)
+        .apply(lambda x: convertir_en_minutes(x, file, id_file))
+    )
 
     listes_plates_machines = Indisponibilités_machines.apply(
-        lambda x: list(chain(*x)))
+        lambda x: list(chain(*x))
+    )
 
     Limites_machines = []
     for i, liste in enumerate(listes_plates_machines):
@@ -237,31 +283,49 @@ def creation_limites_machines(df_machines: pd.DataFrame) -> dict:
 
     Limites_machines = traitement_doublons(Limites_machines)
     Limites_machines = {
-        'DEB': Limites_machines[0], 'FOR': Limites_machines[1], 'DEG': Limites_machines[2]}
+        Machines.DEB: Limites_machines[0],
+        Machines.FOR: Limites_machines[1],
+        Machines.DEG: Limites_machines[2],
+    }
 
     return Limites_machines
 
 
-def creation_limites_chantiers(df_chantiers: pd.DataFrame):
-    # Appliquer la conversion à la colonne "Indisponibilites"
-    Indisponibilités_chantiers = df_chantiers["Indisponibilites etendues en minutes"] = df_chantiers["Indisponibilites"].astype(
-        str).apply(convertir_en_minutes)
+def creation_limites_chantiers(file: str, id_file) -> dict:
+    """Appliquer la conversion à la colonne 'Indisponibilites'"""
 
-    listes_plates_chantiers = Indisponibilités_chantiers.apply(
-        lambda x: list(chain(*x)))
+    df_chantiers = pd.read_excel(file, sheet_name=Feuilles.CHANTIERS)
 
-    Limites_chantiers = []
+    indisponibilités_chantiers = df_chantiers[
+        Colonnes.INDISPONIBILITE_MINUTES
+    ] = (
+        df_chantiers[Colonnes.INDISPONIBILITE]
+        .astype(str)
+        .apply(lambda x: convertir_en_minutes(x, file, id_file))
+    )
+
+    listes_plates_chantiers = indisponibilités_chantiers.apply(
+        lambda x: list(chain(*x))
+    )
+
+    limites_chantiers = []
     for i, liste in enumerate(listes_plates_chantiers):
-        Limites_chantiers.append(liste)
+        limites_chantiers.append(liste)
 
-    Limites_chantiers = traitement_doublons(Limites_chantiers)
+    limites_chantiers = traitement_doublons(limites_chantiers)
 
-    Limites_chantiers = {
-        'REC': Limites_chantiers[0], 'FOR': Limites_chantiers[1], 'DEP': Limites_chantiers[2]}
+    limites_chantiers_dict = {
+        Chantiers.REC: limites_chantiers[0],
+        Chantiers.FOR: limites_chantiers[1],
+        Chantiers.DEP: limites_chantiers[2],
+    }
+
+    return limites_chantiers_dict
 
 
-def base_time(id_file):
+def base_time(id_file: int) -> pd.Timestamp:
+    """definit l'origine des temps au premier lundi précédent les evenements de l'instance"""
     if id_file == 0:
-        return (pd.Timestamp("2023-05-01 00:00"))
+        return pd.Timestamp("2023-05-01 00:00")
     elif id_file == 1:
-        return (pd.Timestamp("2022-08-08 00:00"))
+        return pd.Timestamp("2022-08-08 00:00")

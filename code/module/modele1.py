@@ -4,8 +4,9 @@ module pour initier le modèle du jalon 1
 
 import gurobipy as grb
 import numpy as np
-from utils1 import creation_limites_machines,creation_limites_chantiers,read_sillon,base_time,init_dict_correspondance
+from utils1 import creation_limites_machines, creation_limites_chantiers, read_sillon, base_time, init_dict_correspondance
 import pandas as pd
+
 
 class Taches:
     """Contient constantes liées aux taches et à leur temporalité."""
@@ -13,10 +14,10 @@ class Taches:
     # définition des taches
     TACHES_ARRIVEE = [1, 2, 3]
     TACHES_DEPART = [1, 2, 3, 4]
-    
+
     # Définition des numéros des tâches machines
     TACHES_ARR_MACHINE = [3]
-    TACHES_DEP_MACHINE = [1,3]
+    TACHES_DEP_MACHINE = [1, 3]
 
     # Durée des tâches sur les trains d'arrivée
     T_ARR = {1: 15, 2: 45, 3: 15}
@@ -203,20 +204,20 @@ def contraintes_machines(
         for id_arr_1 in liste_id_train_arrivee:
             for id_arr_2 in liste_id_train_arrivee:
                 if id_arr_1 != id_arr_2:
-                    delta_arr[(m_arr,id_arr_1, id_arr_2)] = model.addVar(
+                    delta_arr[(m_arr, id_arr_1, id_arr_2)] = model.addVar(
                         vtype=grb.GRB.BINARY, name=f"delta_arr_{m_arr}_{id_arr_1}_{id_arr_2}"
                     )
 
                     # Si delta = 1, alors id_arr_2 se termine avant id_arr_1
                     model.addConstr(
                         t_arr[(m_arr, id_arr_2)] + Taches.T_ARR[m_arr]
-                        <= t_arr[(m_arr, id_arr_1)] + (1 - delta_arr[(m_arr,id_arr_1, id_arr_2)]) * M_big
+                        <= t_arr[(m_arr, id_arr_1)] + (1 - delta_arr[(m_arr, id_arr_1, id_arr_2)]) * M_big
                     )
 
                     # Si delta = 0, alors id_arr_1 se termine avant id_arr_2
                     model.addConstr(
                         t_arr[(m_arr, id_arr_2)]
-                        >= t_arr[(m_arr, id_arr_1)] + Taches.T_ARR[m_arr] - delta_arr[(m_arr,id_arr_1, id_arr_2)] * M_big
+                        >= t_arr[(m_arr, id_arr_1)] + Taches.T_ARR[m_arr] - delta_arr[(m_arr, id_arr_1, id_arr_2)] * M_big
                     )
 
     delta_dep = {}
@@ -257,172 +258,220 @@ def contraintes_ouvertures_machines(
 ) -> (dict, dict):
     """Contrainte de respect des horaires d'utilisation des machines"""
     M_big = 10000000  # Une grande constante pour relacher certaines contraintes
-    
-    df_machines = pd.read_excel(file, sheet_name="Machines") #################### /!\ #############################
-    _,df_sillons_dep = read_sillon(file)
-    
-    Limites_machines = creation_limites_machines(df_machines, df_sillons_dep, base_time(id_file))
 
-    N_machines = {key:len(Limites_machines[key]) for key in Limites_machines.keys()}
+    # /!\ #############################
+    df_machines = pd.read_excel(file, sheet_name="Machines")
+    _, df_sillons_dep = read_sillon(file)
+
+    Limites_machines = creation_limites_machines(
+        df_machines, df_sillons_dep, base_time(id_file))
+
+    N_machines = {key: len(Limites_machines[key])
+                  for key in Limites_machines.keys()}
 
     delta_lim_machine_DEB = {}
 
     if N_machines['DEB'] > 0:
         for id_arr in liste_id_train_arrivee:
-            
-            delta_lim_machine_DEB[id_arr] = model.addVars(N_machines['DEB']//2 + 1, vtype=grb.GRB.BINARY, name=f"delta_machine_DEB_{id_arr}")  # N//2 + 1  contraintes
-            # Premier cas : Avant la première limite 
-            model.addConstr(t_arr[(3, id_arr)] <= Limites_machines['DEB'][0] - Taches.T_ARR[3] + (1 - delta_lim_machine_DEB[id_arr][0]) * M_big)
-            
+
+            delta_lim_machine_DEB[id_arr] = model.addVars(
+                # N//2 + 1  contraintes
+                N_machines['DEB']//2 + 1, vtype=grb.GRB.BINARY, name=f"delta_machine_DEB_{id_arr}")
+            # Premier cas : Avant la première limite
+            model.addConstr(t_arr[(3, id_arr)] <= Limites_machines['DEB'][0] -
+                            Taches.T_ARR[3] + (1 - delta_lim_machine_DEB[id_arr][0]) * M_big)
+
             # Cas intermédiaires : Entre Limites
-            for i in range(1, N_machines['DEB']//2, 2):
-                model.addConstr(t_arr[(3, id_arr)] >= Limites_machines['DEB'][i] - delta_lim_machine_DEB[id_arr][i//2+1] * M_big)  # Limite inférieure (700)
-                model.addConstr(t_arr[(3, id_arr)] <= Limites_machines['DEB'][i+1] - Taches.T_ARR[3] + (1 - delta_lim_machine_DEB[id_arr][i//2+1]) * M_big)  # Limite supérieure (1500)
-                
+            for i in range(1, N_machines['DEB']//2):
+                model.addConstr(t_arr[(3, id_arr)] >= Limites_machines['DEB'][2*i-1] - (
+                    # Limite inférieure (700)
+                    1 - delta_lim_machine_DEB[id_arr][i]) * M_big)
+                model.addConstr(t_arr[(3, id_arr)] <= Limites_machines['DEB'][2*i] - Taches.T_ARR[3] + (
+                    # Limite supérieure (1500)
+                    1 - delta_lim_machine_DEB[id_arr][i]) * M_big)
+
             # Dernier cas : Après la dernière limite (
             if N_machines['DEB'] % 2 == 0:
-                model.addConstr(t_arr[(3, id_arr)] >= Limites_machines['DEB'][-1] + (1 - delta_lim_machine_DEB[id_arr][N_machines['DEB']//2]) * M_big)
-                
-            # Une seule condition peut être vraie (avant, entre ou après les limites)
-            model.addConstr(sum(delta_lim_machine_DEB[id_arr][i] for i in range(N_machines['DEB']//2+1)) == 1)
+                model.addConstr(t_arr[(3, id_arr)] >= Limites_machines['DEB'][-1] - (
+                    1 - delta_lim_machine_DEB[id_arr][N_machines['DEB']//2]) * M_big)
 
+            # Une seule condition peut être vraie (avant, entre ou après les limites)
+            model.addConstr(grb.quicksum(
+                [delta_lim_machine_DEB[id_arr][i] for i in range(N_machines['DEB']//2+1)]) == 1)
 
     delta_lim_machine_FOR = {}
 
     if N_machines['FOR'] > 0:
         for id_dep in liste_id_train_depart:
-            
-            delta_lim_machine_FOR[id_dep] = model.addVars(N_machines['FOR']//2+1, vtype=grb.GRB.BINARY, name=f"delta_machine_dep_1_{id_dep}") 
+
+            delta_lim_machine_FOR[id_dep] = model.addVars(
+                N_machines['FOR']//2+1, vtype=grb.GRB.BINARY, name=f"delta_machine_dep_1_{id_dep}")
 
             # Premier cas : Avant la première limite
-            model.addConstr(t_dep[(1, id_dep)] <= Limites_machines['FOR'][0] - Taches.T_DEP[1] + (1 - delta_lim_machine_FOR[id_dep][0]) * M_big)
-            
-            # Cas intermédiaires 
-            for i in range(1, N_machines['FOR']//2, 2):
-                model.addConstr(t_dep[(1, id_dep)] >= Limites_machines['FOR'][i] - delta_lim_machine_FOR[id_dep][i//2+1] * M_big)  # Limite inf
-                model.addConstr(t_dep[(1, id_dep)] <= Limites_machines['FOR'][i+1] - Taches.T_DEP[1] + (1 - delta_lim_machine_FOR[id_dep][i//2+1]) * M_big)  # Limite sup
-            
+            model.addConstr(t_dep[(1, id_dep)] <= Limites_machines['FOR'][0] -
+                            Taches.T_DEP[1] + (1 - delta_lim_machine_FOR[id_dep][0]) * M_big)
+
+            # Cas intermédiaires
+            for i in range(1, N_machines['FOR']//2):
+                model.addConstr(t_dep[(1, id_dep)] >= Limites_machines['FOR'][2*i-1] - (
+                    # Limite inf
+                    1 - delta_lim_machine_FOR[id_dep][i]) * M_big)
+                model.addConstr(t_dep[(1, id_dep)] <= Limites_machines['FOR'][2*i] - Taches.T_DEP[1] + (
+                    # Limite sup
+                    1 - delta_lim_machine_FOR[id_dep][i]) * M_big)
+
             # Dernier cas : Après la dernière limite
             if N_machines['FOR'] % 2 == 0:
-                model.addConstr(t_dep[(1, id_dep)] >= Limites_machines['FOR'][-1] + (1 - delta_lim_machine_FOR[id_dep][N_machines['FOR']//2]) * M_big)
-                
+                model.addConstr(t_dep[(1, id_dep)] >= Limites_machines['FOR'][-1] - (
+                    1 - delta_lim_machine_FOR[id_dep][N_machines['FOR']//2]) * M_big)
+
             # Une seule de ces conditions peut être vraie
-            model.addConstr(sum(delta_lim_machine_FOR[id_dep][i] for i in range(N_machines['FOR']//2+1)) == 1)
-        
-        
-        
+            model.addConstr(grb.quicksum(
+                [delta_lim_machine_FOR[id_dep][i] for i in range(N_machines['FOR']//2+1)]) == 1)
+
     delta_lim_machine_DEG = {}
 
     if N_machines['DEG'] > 0:
         for id_dep in liste_id_train_depart:
-            delta_lim_machine_DEG[id_dep] = model.addVars(N_machines['DEG']//2+1, vtype=grb.GRB.BINARY, name=f"delta_machine_dep_3_{id_dep}") 
+            delta_lim_machine_DEG[id_dep] = model.addVars(
+                N_machines['DEG']//2+1, vtype=grb.GRB.BINARY, name=f"delta_machine_dep_3_{id_dep}")
 
             # Premier cas : Avant la première limite
-            model.addConstr(t_dep[(3, id_dep)] <= Limites_machines['DEG'][0] - Tacehs.T_DEP[3] + (1 - delta_lim_machine_DEG[id_dep][0]) * M_big)
-            
+            model.addConstr(t_dep[(3, id_dep)] <= Limites_machines['DEG'][0] -
+                            Taches.T_DEP[3] + (1 - delta_lim_machine_DEG[id_dep][0]) * M_big)
+
             # Cas intermédiaires : Entre Limites
-            for i in range(1, N_machines['DEG']//2, 2):
-                model.addConstr(t_dep[(3, id_dep)] >= Limites_machines['DEG'][i] - delta_lim_machine_DEG[id_dep][i//2+1] * M_big)  # Limite inf
-                model.addConstr(t_dep[(3, id_dep)] <= Limites_machines['DEG'][i+1] - Taches.T_DEP[3] + (1 - delta_lim_machine_DEG[id_dep][i//2+1]) * M_big)  # Limite sup
-            
+            for i in range(1, N_machines['DEG']//2):
+                model.addConstr(t_dep[(3, id_dep)] >= Limites_machines['DEG'][2*i-1] - (
+                    # Limite inf
+                    1 - delta_lim_machine_DEG[id_dep][i]) * M_big)
+                model.addConstr(t_dep[(3, id_dep)] <= Limites_machines['DEG'][2*i] - Taches.T_DEP[3] + (
+                    # Limite sup
+                    1 - delta_lim_machine_DEG[id_dep][i]) * M_big)
+
             # Dernier cas : Après la dernière limite
             if N_machines['DEG'] % 2 == 0:
-                model.addConstr(t_dep[(3, id_dep)] >= Limites_machines['DEG'][-1] + (1 - delta_lim_machine_DEG[id_dep][N_machines['DEG']//2]) * M_big)
-                
+                model.addConstr(t_dep[(3, id_dep)] >= Limites_machines['DEG'][-1] - (
+                    1 - delta_lim_machine_DEG[id_dep][N_machines['DEG']//2]) * M_big)
+
             # Une seule de ces conditions peut être vraie
-            model.addConstr(sum(delta_lim_machine_DEG[id_dep][i] for i in range(N_machines['DEG']//2+1)) == 1)
+            model.addConstr(grb.quicksum(
+                [delta_lim_machine_DEG[id_dep][i] for i in range(N_machines['DEG']//2+1)]) == 1)
     return delta_lim_machine_DEB, delta_lim_machine_FOR, delta_lim_machine_DEG
 
 
-
-
-
-
 def contraintes_ouvertures_chantiers(model: grb.Model,
-    t_arr: dict,
-    liste_id_train_arrivee: list,
-    t_dep: dict,
-    liste_id_train_depart: list,
-    file: str,
-) -> (dict, dict):
+                                     t_arr: dict,
+                                     liste_id_train_arrivee: list,
+                                     t_dep: dict,
+                                     liste_id_train_depart: list,
+                                     file: str,
+                                     ) -> (dict, dict):
     M_big = 10000000  # Une grande constante pour relacher certaines contraintes
-    
-    df_chantiers = pd.read_excel(file, sheet_name="Chantiers") #################### /!\ #############################
+
+    # /!\ #############################
+    df_chantiers = pd.read_excel(file, sheet_name="Chantiers")
     Limites_chantiers = creation_limites_chantiers(df_chantiers)
 
-    N_chantiers = {key:len(Limites_chantiers[key]) for key in Limites_chantiers.keys()}
+    N_chantiers = {key: len(Limites_chantiers[key])
+                   for key in Limites_chantiers.keys()}
 
-    delta_lim_chantier_rec = {1:{}, 2:{}, 3:{}}
+    delta_lim_chantier_rec = {1: {}, 2: {}, 3: {}}
 
     if N_chantiers['REC'] > 0:
         for id_arr in liste_id_train_arrivee:
-            for m in range(min(delta_lim_chantier_rec.keys()),max(delta_lim_chantier_rec.keys())+1):
-                
-                delta_lim_chantier_rec[m][id_arr] = model.addVars(N_chantiers['REC']//2 + 1, vtype=grb.GRB.BINARY, name=f"delta_REC_{m}_{id_arr}")  # N//2 + 1  contraintes
-                
-                # Premier cas : Avant la première limite 
-                model.addConstr(t_arr[(m, id_arr)] <= Limites_chantiers['REC'][0] - Taches.T_ARR[m] + (1 - delta_lim_chantier_rec[m][id_arr][0]) * M_big)
-                
+            for m in range(min(delta_lim_chantier_rec.keys()), max(delta_lim_chantier_rec.keys())+1):
+
+                delta_lim_chantier_rec[m][id_arr] = model.addVars(
+                    # N//2 + 1  contraintes
+                    N_chantiers['REC']//2 + 1, vtype=grb.GRB.BINARY, name=f"delta_REC_{m}_{id_arr}")
+
+                # Premier cas : Avant la première limite
+                model.addConstr(t_arr[(m, id_arr)] <= Limites_chantiers['REC'][0] -
+                                Taches.T_ARR[m] + (1 - delta_lim_chantier_rec[m][id_arr][0]) * M_big)
+
                 # Cas intermédiaires : Entre Limites
-                for i in range(1, N_chantiers['REC']//2, 2):
-                    model.addConstr(t_arr[(m, id_arr)] >= Limites_chantiers['REC'][i] - delta_lim_chantier_rec[m][id_arr][i//2+1] * M_big)  # Limite inférieure (700)
-                    model.addConstr(t_arr[(m, id_arr)] <= Limites_chantiers['REC'][i+1] - Taches.T_ARR[m] + (1 - delta_lim_chantier_rec[m][id_arr][i//2+1]) * M_big)  # Limite supérieure (1500)
-                    
+                for i in range(1, N_chantiers['REC']//2):
+                    model.addConstr(t_arr[(m, id_arr)] >= Limites_chantiers['REC'][2*i-1] - (
+                        # Limite inférieure (700)
+                        1 - delta_lim_chantier_rec[m][id_arr][i]) * M_big)
+                    model.addConstr(t_arr[(m, id_arr)] <= Limites_chantiers['REC'][2*i] - Taches.T_ARR[m] + (
+                        # Limite supérieure (1500)
+                        1 - delta_lim_chantier_rec[m][id_arr][i]) * M_big)
+
                 # Dernier cas : Après la dernière limite (
                 if N_chantiers['REC'] % 2 == 0:
-                    model.addConstr(t_arr[(m, id_arr)] >= Limites_chantiers['REC'][-1] + (1 - delta_lim_chantier_rec[m][id_arr][N_chantiers['REC']//2]) * M_big)
+                    model.addConstr(t_arr[(m, id_arr)] >= Limites_chantiers['REC'][-1] - (
+                        1 - delta_lim_chantier_rec[m][id_arr][N_chantiers['REC']//2]) * M_big)
 
                 # Une seule condition peut être vraie (avant, entre ou après les limites)
-                model.addConstr(sum(delta_lim_chantier_rec[m][id_arr][i] for i in range(N_chantiers['REC']//2+1)) == 1)
+                model.addConstr(grb.quicksum(
+                    [delta_lim_chantier_rec[m][id_arr][i] for i in range(N_chantiers['REC']//2+1)]) == 1)
 
-    delta_lim_chantier_for = {1:{}, 2:{}, 3:{}}
+    delta_lim_chantier_for = {1: {}, 2: {}, 3: {}}
 
     if N_chantiers['FOR'] > 0:
         for id_dep in liste_id_train_depart:
-            for m in range(min(delta_lim_chantier_for.keys()),max(delta_lim_chantier_for.keys())+1):
-                
-                delta_lim_chantier_for[m][id_dep] = model.addVars(N_chantiers['FOR']//2 + 1, vtype=grb.GRB.BINARY, name=f"delta_FOR_{m}_{id_dep}")  # N//2 + 1  contraintes
-                
-                # Premier cas : Avant la première limite 
-                model.addConstr(t_dep[(m, id_dep)] <= Limites_chantiers['FOR'][0] - Taches.T_DEP[m] + (1 - delta_lim_chantier_for[m][id_dep][0]) * M_big)
-                
+            for m in range(min(delta_lim_chantier_for.keys()), max(delta_lim_chantier_for.keys())+1):
+
+                delta_lim_chantier_for[m][id_dep] = model.addVars(
+                    # N//2 + 1  contraintes
+                    N_chantiers['FOR']//2 + 1, vtype=grb.GRB.BINARY, name=f"delta_FOR_{m}_{id_dep}")
+
+                # Premier cas : Avant la première limite
+                model.addConstr(t_dep[(m, id_dep)] <= Limites_chantiers['FOR'][0] -
+                                Taches.T_DEP[m] + (1 - delta_lim_chantier_for[m][id_dep][0]) * M_big)
+
                 # Cas intermédiaires : Entre Limites
-                for i in range(1, N_chantiers['FOR']//2, 2):
-                    model.addConstr(t_dep[(m, id_dep)] >= Limites_chantiers['FOR'][i] - delta_lim_chantier_for[m][id_dep][i//2+1] * M_big)  # Limite inférieure (700)
-                    model.addConstr(t_dep[(m, id_dep)] <= Limites_chantiers['FOR'][i+1] - Taches.T_DEP[m] + (1 - delta_lim_chantier_for[m][id_dep][i//2+1]) * M_big)  # Limite supérieure (1500)
-                    
+                for i in range(1, N_chantiers['FOR']//2):
+                    model.addConstr(t_dep[(m, id_dep)] >= Limites_chantiers['FOR'][2*i-1] - (
+                        # Limite inférieure (700)
+                        1 - delta_lim_chantier_for[m][id_dep][i]) * M_big)
+                    model.addConstr(t_dep[(m, id_dep)] <= Limites_chantiers['FOR'][2*i] - Taches.T_DEP[m] + (
+                        # Limite supérieure (1500)
+                        1 - delta_lim_chantier_for[m][id_dep][i]) * M_big)
+
                 # Dernier cas : Après la dernière limite (
                 if N_chantiers['FOR'] % 2 == 0:
-                    model.addConstr(t_dep[(m, id_dep)] >= Limites_chantiers['FOR'][-1] + (1 - delta_lim_chantier_for[m][id_dep][N_chantiers['FOR']//2]) * M_big)
+                    model.addConstr(t_dep[(m, id_dep)] >= Limites_chantiers['FOR'][-1] - (
+                        1 - delta_lim_chantier_for[m][id_dep][N_chantiers['FOR']//2]) * M_big)
 
                 # Une seule condition peut être vraie (avant, entre ou après les limites)
-                model.addConstr(sum(delta_lim_chantier_for[m][id_dep][i] for i in range(N_chantiers['FOR']//2+1)) == 1)
+                model.addConstr(grb.quicksum(
+                    [delta_lim_chantier_for[m][id_dep][i] for i in range(N_chantiers['FOR']//2+1)]) == 1)
 
-    delta_lim_chantier_dep = {4:{}}
+    delta_lim_chantier_dep = {4: {}}
 
     if N_chantiers['DEP'] > 0:
         for id_dep in liste_id_train_depart:
-            for m in range(min(delta_lim_chantier_dep.keys()),max(delta_lim_chantier_dep.keys())+1):
-                
-                delta_lim_chantier_dep[m][id_dep] = model.addVars(N_chantiers['DEP']//2 + 1, vtype=grb.GRB.BINARY, name=f"delta_DEP_{m}_{id_dep}")  # N//2 + 1  contraintes
-                
-                # Premier cas : Avant la première limite 
-                model.addConstr(t_dep[(m, id_dep)] <= Limites_chantiers['DEP'][0] - Taches.T_DEP[m] + (1 - delta_lim_chantier_dep[m][id_dep][0]) * M_big)
-                
+            for m in range(min(delta_lim_chantier_dep.keys()), max(delta_lim_chantier_dep.keys())+1):
+
+                delta_lim_chantier_dep[m][id_dep] = model.addVars(
+                    # N//2 + 1  contraintes
+                    N_chantiers['DEP']//2 + 1, vtype=grb.GRB.BINARY, name=f"delta_DEP_{m}_{id_dep}")
+
+                # Premier cas : Avant la première limite
+                model.addConstr(t_dep[(m, id_dep)] <= Limites_chantiers['DEP'][0] -
+                                Taches.T_DEP[m] + (1 - delta_lim_chantier_dep[m][id_dep][0]) * M_big)
+
                 # Cas intermédiaires : Entre Limites
-                for i in range(1, N_chantiers['DEP']//2, 2):
-                    model.addConstr(t_dep[(m, id_dep)] >= Limites_chantiers['DEP'][i] - delta_lim_chantier_dep[m][id_dep][i//2+1] * M_big)  # Limite inférieure (700)
-                    model.addConstr(t_dep[(m, id_dep)] <= Limites_chantiers['DEP'][i+1] - Taches.T_DEP[m] + (1 - delta_lim_chantier_dep[m][id_dep][i//2+1]) * M_big)  # Limite supérieure (1500)
-                    
+                for i in range(1, N_chantiers['DEP']//2):
+                    model.addConstr(t_dep[(m, id_dep)] >= Limites_chantiers['DEP'][2*i-1] - (
+                        # Limite inférieure (700)
+                        1 - delta_lim_chantier_dep[m][id_dep][i]) * M_big)
+                    model.addConstr(t_dep[(m, id_dep)] <= Limites_chantiers['DEP'][2*i] - Taches.T_DEP[m] + (
+                        # Limite supérieure (1500)
+                        1 - delta_lim_chantier_dep[m][id_dep][i]) * M_big)
+
                 # Dernier cas : Après la dernière limite (
                 if N_chantiers['DEP'] % 2 == 0:
-                    model.addConstr(t_dep[(m, id_dep)] >= Limites_chantiers['DEP'][-1] + (1 - delta_lim_chantier_dep[m][id_dep][N_chantiers['DEP']//2]) * M_big)
+                    model.addConstr(t_dep[(m, id_dep)] >= Limites_chantiers['DEP'][-1] - (
+                        1 - delta_lim_chantier_dep[m][id_dep][N_chantiers['DEP']//2]) * M_big)
 
                 # Une seule condition peut être vraie (avant, entre ou après les limites)
-                model.addConstr(sum(delta_lim_chantier_dep[m][id_dep][i] for i in range(N_chantiers['DEP']//2+1)) == 1)
-        
-        
-                
+                model.addConstr(grb.quicksum(
+                    [delta_lim_chantier_dep[m][id_dep][i] for i in range(N_chantiers['DEP']//2+1)]) == 1)
+
 
 def contraintes_succession(
     model: grb.Model,
@@ -434,5 +483,6 @@ def contraintes_succession(
     """Contrainte de succession des tâches sur les trains d'arrivées et des tâches sur les trains de départ en tenant compte de la correspondance des wagons"""
     for id_dep in liste_id_train_depart:
         for id_arr in dict_correspondances[id_dep]:
-            model.addConstr(t_dep[(1,id_dep)] >= t_arr[(3,id_arr)] + Taches.T_ARR[3])
+            model.addConstr(t_dep[(1, id_dep)] >=
+                            t_arr[(3, id_arr)] + Taches.T_ARR[3])
     return True

@@ -67,15 +67,15 @@ def init_model(
     # Mise à jour du modèle
     model.update()
 
-    return model
+    return model, t_arr, t_dep
 
 
 # initiations des variables
 def init_variables(
-    m:grb.Model,
-    liste_id_train_arrivee:list,
-    liste_id_train_depart:list,
-)->(dict,dict):
+    m: grb.Model,
+    liste_id_train_arrivee: list,
+    liste_id_train_depart: list,
+) -> (dict, dict):
     t_arr = variables_debut_tache_arrive(m, liste_id_train_arrivee)
     t_dep = variables_debut_tache_depart(m, liste_id_train_depart)
 
@@ -83,9 +83,9 @@ def init_variables(
 
 
 def variables_debut_tache_arrive(
-    model:grb.Model,
-    liste_id_train_arrivee:list,
-)->dict:
+    model: grb.Model,
+    liste_id_train_arrivee: list,
+) -> dict:
     """Temps de début de la tâche m sur le train d'arrivée n, en minute, comptée à partir du lundi 8 Aout 2022 00:00"""
     t_arr = {
         (m, id_train_arr): model.addVar(vtype=grb.GRB.INTEGER, name="t")
@@ -96,9 +96,9 @@ def variables_debut_tache_arrive(
 
 
 def variables_debut_tache_depart(
-    model:grb.Model,
-    liste_id_train_depart:list,
-)->dict:
+    model: grb.Model,
+    liste_id_train_depart: list,
+) -> dict:
     """Temps de début de la tâche m sur le train de départ n, en minute, comptée à partir du lundi 8 Aout 2022 00:00"""
     t_dep = {
         (m, id_train_dep): model.addVar(vtype=grb.GRB.INTEGER, name="t")
@@ -110,15 +110,15 @@ def variables_debut_tache_depart(
 
 # initiation des contraintes
 def init_contraintes(
-    model:grb.Model,
-    t_arr:dict,
-    t_a:dict,
-    liste_id_train_arrivee:list,
-    t_dep:dict,
-    t_d:dict,
-    liste_id_train_depart:list,
-    dict_correspondances:dict,
-)->(dict, dict, dict, dict):
+    model: grb.Model,
+    t_arr: dict,
+    t_a: dict,
+    liste_id_train_arrivee: list,
+    t_dep: dict,
+    t_d: dict,
+    liste_id_train_depart: list,
+    dict_correspondances: dict,
+) -> (dict, dict, dict, dict):
     contraintes_temporalite(
         model,
         t_arr,
@@ -157,35 +157,38 @@ def init_contraintes(
 
 
 def contraintes_temporalite(
-    model:grb.Model,
-    t_arr:dict,
-    t_a:dict,
-    liste_id_train_arrivee:list,
-    t_dep:dict,
-    t_d:dict,
-    liste_id_train_depart:list,
-)->bool:
+    model: grb.Model,
+    t_arr: dict,
+    t_a: dict,
+    liste_id_train_arrivee: list,
+    t_dep: dict,
+    t_d: dict,
+    liste_id_train_depart: list,
+) -> bool:
     """Contraintes de temporalité des tâches sur un même train et respect des heures de départ et d'arrivée"""
     for id_train_arr in liste_id_train_arrivee:
         model.addConstr(t_arr[(1, id_train_arr)] >= t_a[id_train_arr])
         for m in Taches.TACHES_ARRIVEE[:-1]:
-            model.addConstr(t_arr[(m, id_train_arr)] + Taches.T_ARR[m] <= t_arr[(m + 1, id_train_arr)])
+            model.addConstr(t_arr[(m, id_train_arr)] +
+                            Taches.T_ARR[m] <= t_arr[(m + 1, id_train_arr)])
 
     for id_train_dep in liste_id_train_depart:
         M_dep = Taches.TACHES_DEPART[-1]
-        model.addConstr(t_dep[(M_dep, id_train_dep)] + Taches.T_DEP[M_dep] <= t_d[id_train_dep])
+        model.addConstr(t_dep[(M_dep, id_train_dep)] +
+                        Taches.T_DEP[M_dep] <= t_d[id_train_dep])
         for m in Taches.TACHES_DEPART[:-1]:
-            model.addConstr(t_dep[(m, id_train_dep)] + Taches.T_DEP[m] <= t_dep[(m + 1, id_train_dep)])
+            model.addConstr(t_dep[(m, id_train_dep)] +
+                            Taches.T_DEP[m] <= t_dep[(m + 1, id_train_dep)])
     return True
 
 
 def contraintes_machines(
-    model:grb.Model,
-    t_arr:dict,
-    liste_id_train_arrivee:list,
-    t_dep:dict,
-    liste_id_train_depart:list,
-)->(dict,dict):
+    model: grb.Model,
+    t_arr: dict,
+    liste_id_train_arrivee: list,
+    t_dep: dict,
+    liste_id_train_depart: list,
+) -> (dict, dict):
     """Contrainte permettant d'avoir au plus un wagon par machine à chaque instant"""
 
     M_big = 100000  # Une grande constante, à ajuster en fonction de tes données
@@ -238,12 +241,12 @@ def contraintes_machines(
 
 
 def contraintes_ouvertures(
-    model:grb.Model,
-    t_arr:dict,
-    liste_id_train_arrivee:list,
-    t_dep:dict,
-    liste_id_train_depart:list,
-)->(dict,dict):
+    model: grb.Model,
+    t_arr: dict,
+    liste_id_train_arrivee: list,
+    t_dep: dict,
+    liste_id_train_depart: list,
+) -> (dict, dict):
     """Contrainte de respect des horaires d'ouvertures des voies et d'utilisation des machines"""
     M_big = 100000  # Une grande constante, à ajuster en fonction de tes données
 
@@ -256,35 +259,43 @@ def contraintes_ouvertures(
 
         # Cas 1 : Avant la première limite
         model.addConstr(
-            t_arr[(3, id_arr)] <= Taches.LIMITES[0] - Taches.T_ARR[3] + (1 - delta_lim_arr[id_arr][0]) * M_big
+            t_arr[(3, id_arr)] <= Taches.LIMITES[0] - Taches.T_ARR[3] +
+            (1 - delta_lim_arr[id_arr][0]) * M_big
         )
 
         # Cas 2 : Entre LIMITES[1] et LIMITES[2]
         model.addConstr(
-            t_arr[(3, id_arr)] >= Taches.LIMITES[1] - delta_lim_arr[id_arr][1] * M_big
+            t_arr[(3, id_arr)] >= Taches.LIMITES[1] -
+            delta_lim_arr[id_arr][1] * M_big
         )  # Limite inf
         model.addConstr(
-            t_arr[(3, id_arr)] <= Taches.LIMITES[2] - Taches.T_ARR[3] + (1 - delta_lim_arr[id_arr][1]) * M_big
+            t_arr[(3, id_arr)] <= Taches.LIMITES[2] - Taches.T_ARR[3] +
+            (1 - delta_lim_arr[id_arr][1]) * M_big
         )  # Limite sup
 
         # Cas 3 : Entre LIMITES[3] et LIMITES[4]
         model.addConstr(
-            t_arr[(3, id_arr)] >= Taches.LIMITES[3] - delta_lim_arr[id_arr][2] * M_big
+            t_arr[(3, id_arr)] >= Taches.LIMITES[3] -
+            delta_lim_arr[id_arr][2] * M_big
         )  # Limite inf
         model.addConstr(
-            t_arr[(3, id_arr)] <= Taches.LIMITES[4] - Taches.T_ARR[3] + (1 - delta_lim_arr[id_arr][2]) * M_big
+            t_arr[(3, id_arr)] <= Taches.LIMITES[4] - Taches.T_ARR[3] +
+            (1 - delta_lim_arr[id_arr][2]) * M_big
         )  # Limite sup
 
         # Cas 4 : Entre LIMITES[5] et LIMITES[6]
         model.addConstr(
-            t_arr[(3, id_arr)] >= Taches.LIMITES[5] - delta_lim_arr[id_arr][3] * M_big
+            t_arr[(3, id_arr)] >= Taches.LIMITES[5] -
+            delta_lim_arr[id_arr][3] * M_big
         )  # Limite inf
         model.addConstr(
-            t_arr[(3, id_arr)] <= Taches.LIMITES[6] - Taches.T_ARR[3] + (1 - delta_lim_arr[id_arr][3]) * M_big
+            t_arr[(3, id_arr)] <= Taches.LIMITES[6] - Taches.T_ARR[3] +
+            (1 - delta_lim_arr[id_arr][3]) * M_big
         )  # Limite sup
 
         # Cas 5 : Après la dernière limite
-        model.addConstr(t_arr[(3, id_arr)] >= Taches.LIMITES[7] - delta_lim_arr[id_arr][4] * M_big)
+        model.addConstr(
+            t_arr[(3, id_arr)] >= Taches.LIMITES[7] - delta_lim_arr[id_arr][4] * M_big)
 
         # Une seule de ces conditions peut être vraie
         model.addConstr(
@@ -312,7 +323,8 @@ def contraintes_ouvertures(
 
             # Cas 2 : Entre LIMITES[1] et LIMITES[2]
             model.addConstr(
-                t_dep[(m_dep, id_dep)] >= Taches.LIMITES[1] - delta_lim_dep[(m_dep, id_dep)][1] * M_big
+                t_dep[(m_dep, id_dep)] >= Taches.LIMITES[1] -
+                delta_lim_dep[(m_dep, id_dep)][1] * M_big
             )  # Limite inf
             model.addConstr(
                 t_dep[(m_dep, id_dep)]
@@ -321,7 +333,8 @@ def contraintes_ouvertures(
 
             # Cas 3 : Entre LIMITES[3] et LIMITES[4]
             model.addConstr(
-                t_dep[(m_dep, id_dep)] >= Taches.LIMITES[3] - delta_lim_dep[(m_dep, id_dep)][2] * M_big
+                t_dep[(m_dep, id_dep)] >= Taches.LIMITES[3] -
+                delta_lim_dep[(m_dep, id_dep)][2] * M_big
             )  # Limite inf
             model.addConstr(
                 t_dep[(m_dep, id_dep)]
@@ -330,7 +343,8 @@ def contraintes_ouvertures(
 
             # Cas 4 : Entre LIMITES[5] et LIMITES[6]
             model.addConstr(
-                t_dep[(m_dep, id_dep)] >= Taches.LIMITES[5] - delta_lim_dep[(m_dep, id_dep)][3] * M_big
+                t_dep[(m_dep, id_dep)] >= Taches.LIMITES[5] -
+                delta_lim_dep[(m_dep, id_dep)][3] * M_big
             )  # Limite inf
             model.addConstr(
                 t_dep[(m_dep, id_dep)]
@@ -339,7 +353,8 @@ def contraintes_ouvertures(
 
             # Cas 5 : Après la dernière limite
             model.addConstr(
-                t_dep[(m_dep, id_dep)] >= Taches.LIMITES[7] - delta_lim_dep[(m_dep, id_dep)][4] * M_big
+                t_dep[(m_dep, id_dep)] >= Taches.LIMITES[7] -
+                delta_lim_dep[(m_dep, id_dep)][4] * M_big
             )
 
             # Une seule de ces conditions peut être vraie
@@ -355,14 +370,15 @@ def contraintes_ouvertures(
 
 
 def contraintes_succession(
-    model:grb.Model,
-    t_arr:dict,
-    t_dep:dict,
-    liste_id_train_depart:list,
-    dict_correspondances:dict,
-)->bool:
+    model: grb.Model,
+    t_arr: dict,
+    t_dep: dict,
+    liste_id_train_depart: list,
+    dict_correspondances: dict,
+) -> bool:
     """Contrainte de succession des tâches sur les trains d'arrivées et des tâches sur les trains de départ en tenant compte de la correspondance des wagons"""
     for id_dep in liste_id_train_depart:
         for id_arr in dict_correspondances[id_dep]:
-            model.addConstr(t_dep[(1, id_dep)] >= t_arr[(3, id_arr)] + Taches.T_ARR[3])
+            model.addConstr(t_dep[(1, id_dep)] >=
+                            t_arr[(3, id_arr)] + Taches.T_ARR[3])
     return True

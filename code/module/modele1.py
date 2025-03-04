@@ -1,5 +1,18 @@
 """
-module pour initier le modèle du jalon 1
+Module de gestion des opérations sur les trains utilisant Gurobi pour l'optimisation.
+
+Ce module définit les tâches et contraintes pour la planification des opérations
+sur les trains, incluant les tâches d'arrivée et de départ, ainsi que les
+contraintes temporelles et de succession.
+
+Classes :
+---------
+Taches : Constantes et attributs des tâches à effectuer sur les trains.
+
+Fonctions :
+-----------
+init_model : Initialise le modèle Gurobi avec les contraintes de base.
+contraintes_succession : Ajoute des contraintes de succession entre les tâches.
 """
 
 import gurobipy as grb
@@ -7,16 +20,32 @@ import numpy as np
 from module.utils1 import (
     creation_limites_machines,
     creation_limites_chantiers,
-    # read_sillon,
-    # base_time,
     Machines,
     Chantiers,
 )
-# import pandas as pd
 
 
 class Taches:
-    """Contient constantes liées aux taches et à leur temporalité."""
+    """
+    Constantes des tâches à effectuer sur les trains et leur temporalité.
+
+    Attributs :
+    ----------
+    TACHES_ARRIVEE : list[int]
+        Tâches à effectuer à l'arrivée d'un train.
+    TACHES_DEPART : list[int]
+        Tâches à effectuer au départ d'un train.
+    TACHES_ARR_MACHINE : list[int]
+        Tâches d'arrivée nécessitant une machine.
+    TACHES_DEP_MACHINE : list[int]
+        Tâches de départ nécessitant une machine.
+    T_ARR : dict[int, int]
+        Durée des tâches d'arrivée (en minutes).
+    T_DEP : dict[int, int]
+        Durée des tâches de départ (en minutes).
+    LIMITES : np.ndarray
+        Horaires limites du chantier et des machines (en minutes).
+    """
 
     # définition des taches
     TACHES_ARRIVEE = [1, 2, 3]
@@ -47,7 +76,6 @@ class Taches:
     )
 
 
-# initiation du model avec les bonnes variables et les bonnes contraintes
 def init_model(
     liste_id_train_arrivee: list,
     t_a: dict,
@@ -55,9 +83,35 @@ def init_model(
     t_d: dict,
     dict_correspondances: dict,
     file: str,
-    id_file,
-) -> grb.Model:
-    """initie le model à optimiser en mettant les variables et les contraintes"""
+    id_file: int,
+) -> tuple[grb.Model, dict, dict]:
+    """
+    Initialise le modèle d'optimisation avec les variables et contraintes.
+
+    Paramètres :
+    -----------
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+    t_a : dict
+        Durée des tâches d'arrivée.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+    t_d : dict
+        Durée des tâches de départ.
+    dict_correspondances : dict
+        Correspondances entre trains d'arrivée et de départ.
+    file : str
+        Nom du fichier de configuration.
+    id_file :
+        Identifiant du fichier.
+
+    Retourne :
+    ---------
+    grb.Model
+        Modèle d'optimisation Gurobi initialisé.
+    tuple
+        Variables du modèle (t_arr, t_dep).
+    """
     model = grb.Model("SNCF JALON 1")
 
     t_arr, t_dep = init_variables(
@@ -87,12 +141,29 @@ def init_model(
     return model, t_arr, t_dep
 
 
-# initiations des variables
 def init_variables(
     m: grb.Model,
     liste_id_train_arrivee: list,
     liste_id_train_depart: list,
-) -> (dict, dict):
+) -> tuple[dict, dict]:
+    """
+    Initialise les variables de début des tâches pour les trains.
+
+    Paramètres :
+    -----------
+    m : grb.Model
+        Modèle d'optimisation Gurobi.
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+
+    Retourne :
+    ---------
+    tuple[dict, dict]
+        - Variables des débuts de tâches d'arrivée.
+        - Variables des débuts de tâches de départ.
+    """
     t_arr = variables_debut_tache_arrive(m, liste_id_train_arrivee)
     t_dep = variables_debut_tache_depart(m, liste_id_train_depart)
 
@@ -103,7 +174,21 @@ def variables_debut_tache_arrive(
     model: grb.Model,
     liste_id_train_arrivee: list,
 ) -> dict:
-    """Temps de début de la tâche m sur le train d'arrivée n, en minute, comptée à partir du lundi 8 Aout 2022 00:00"""
+    """
+    Initialise les variables de début des tâches pour les trains à l'arrivée.
+
+    Paramètres :
+    -----------
+    model : grb.Model
+        Modèle d'optimisation Gurobi.
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+
+    Retourne :
+    ---------
+    dict
+        Variables de début des tâches d'arrivée, indexées par (tâche, train).
+    """
     t_arr = {
         (m, id_train_arr): model.addVar(vtype=grb.GRB.INTEGER, name="t")
         for m in Taches.TACHES_ARRIVEE
@@ -116,7 +201,21 @@ def variables_debut_tache_depart(
     model: grb.Model,
     liste_id_train_depart: list,
 ) -> dict:
-    """Temps de début de la tâche m sur le train de départ n, en minute, comptée à partir du lundi 8 Aout 2022 00:00"""
+    """
+    Initialise les variables de début des tâches pour les trains au départ.
+
+    Paramètres :
+    -----------
+    model : grb.Model
+        Modèle d'optimisation Gurobi.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+
+    Retourne :
+    ---------
+    dict
+        Variables de début des tâches de départ, indexées par (tâche, train).
+    """
     t_dep = {
         (m, id_train_dep): model.addVar(vtype=grb.GRB.INTEGER, name="t")
         for m in Taches.TACHES_DEPART
@@ -125,7 +224,6 @@ def variables_debut_tache_depart(
     return t_dep
 
 
-# initiation des contraintes
 def init_contraintes(
     model: grb.Model,
     t_arr: dict,
@@ -136,8 +234,39 @@ def init_contraintes(
     liste_id_train_depart: list,
     dict_correspondances: dict,
     file: str,
-    id_file,
+    id_file: int,
 ) -> bool:
+    """
+    Initialise les contraintes du modèle d'optimisation.
+
+    Paramètres :
+    -----------
+    model : grb.Model
+        Modèle d'optimisation Gurobi.
+    t_arr : dict
+        Variables de début des tâches d'arrivée.
+    t_a : dict
+        Durée des tâches d'arrivée.
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+    t_dep : dict
+        Variables de début des tâches de départ.
+    t_d : dict
+        Durée des tâches de départ.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+    dict_correspondances : dict
+        Correspondances entre trains d'arrivée et de départ.
+    file : str
+        Nom du fichier de configuration.
+    id_file : int
+        Identifiant du fichier.
+
+    Retourne :
+    ---------
+    bool
+        Toujours True après l'initialisation des contraintes.
+    """
     contraintes_temporalite(
         model,
         t_arr,
@@ -176,14 +305,6 @@ def init_contraintes(
         id_file,
     )
 
-    # delta_lim_arr, delta_lim_dep = contraintes_ouvertures(
-    #     model,
-    #     t_arr,
-    #     liste_id_train_arrivee,
-    #     t_dep,
-    #     liste_id_train_depart,
-    # )
-
     contraintes_succession(
         model,
         t_arr,
@@ -204,7 +325,32 @@ def contraintes_temporalite(
     t_d: dict,
     liste_id_train_depart: list,
 ) -> bool:
-    """Contraintes de temporalité des tâches sur un même train et respect des heures de départ et d'arrivée"""
+    """
+    Ajoute les contraintes de temporalité des tâches sur un même train,
+    ainsi que le respect des heures de départ et d'arrivée.
+
+    Paramètres :
+    -----------
+    model : grb.Model
+        Modèle d'optimisation Gurobi.
+    t_arr : dict
+        Variables de début des tâches d'arrivée.
+    t_a : dict
+        Durée des tâches d'arrivée.
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+    t_dep : dict
+        Variables de début des tâches de départ.
+    t_d : dict
+        Durée des tâches de départ.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+
+    Retourne :
+    ---------
+    bool
+        Toujours True après l'ajout des contraintes de temporalité.
+    """
     for id_train_arr in liste_id_train_arrivee:
         model.addConstr(t_arr[(1, id_train_arr)] >= t_a[id_train_arr])
         for m in Taches.TACHES_ARRIVEE[:-1]:
@@ -233,8 +379,30 @@ def contraintes_machines(
     liste_id_train_arrivee: list,
     t_dep: dict,
     liste_id_train_depart: list,
-) -> (dict, dict):
-    """Contrainte permettant d'avoir au plus un wagon par machine à chaque instant"""
+) -> tuple[dict, dict]:
+    """
+    Ajoute des contraintes pour assurer qu'il n'y a qu'un seul wagon par machine
+    à chaque instant, en gérant les interactions entre les trains.
+
+    Paramètres :
+    -----------
+    model : grb.Model
+        Modèle d'optimisation Gurobi.
+    t_arr : dict
+        Variables de début des tâches d'arrivée.
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+    t_dep : dict
+        Variables de début des tâches de départ.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+
+    Retourne :
+    ---------
+    tuple[dict, dict]
+        - `delta_arr` : Variables binaires pour les trains à l'arrivée.
+        - `delta_dep` : Variables binaires pour les trains au départ.
+    """
 
     M_big = 100000  # Une grande constante, à ajuster en fonction de tes données
     delta_arr = {}
@@ -300,8 +468,35 @@ def contraintes_ouvertures_machines(
     liste_id_train_depart: list,
     file: str,
     id_file: int,
-) -> (dict, dict, dict):
-    """Contrainte de respect des horaires d'utilisation des machines"""
+) -> tuple[dict, dict, dict]:
+    """
+    Ajoute des contraintes pour respecter les horaires d'utilisation des machines
+    et garantir qu'un seul train utilise une machine à la fois.
+
+    Paramètres :
+    -----------
+    model : grb.Model
+        Modèle d'optimisation Gurobi.
+    t_arr : dict
+        Variables de début des tâches d'arrivée.
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+    t_dep : dict
+        Variables de début des tâches de départ.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+    file : str
+        Nom du fichier de configuration.
+    id_file : int
+        Identifiant du fichier.
+
+    Retourne :
+    ---------
+    tuple[dict, dict, dict]
+        - `delta_lim_machine_DEB` : Contraintes de limites pour les machines de type DEB.
+        - `delta_lim_machine_FOR` : Contraintes de limites pour les machines de type FOR.
+        - `delta_lim_machine_DEG` : Contraintes de limites pour les machines de type DEG.
+    """
     M_big = 10000000  # Une grande constante pour relacher certaines contraintes
 
     Limites_machines = creation_limites_machines(file, id_file)
@@ -331,12 +526,12 @@ def contraintes_ouvertures_machines(
             for i in range(1, N_machines[Machines.DEB] // 2):
                 model.addConstr(
                     t_arr[(3, id_arr)]
-                    >= Limites_machines[Machines.DEB][2*i-1]
+                    >= Limites_machines[Machines.DEB][2 * i - 1]
                     - (1 - delta_lim_machine_DEB[id_arr][i]) * M_big
                 )
                 model.addConstr(
                     t_arr[(3, id_arr)]
-                    <= Limites_machines[Machines.DEB][2*i]
+                    <= Limites_machines[Machines.DEB][2 * i]
                     - Taches.T_ARR[3]
                     + (1 - delta_lim_machine_DEB[id_arr][i]) * M_big
                 )
@@ -358,8 +553,10 @@ def contraintes_ouvertures_machines(
             # Une seule condition peut être vraie (avant, entre ou après les limites)
             model.addConstr(
                 grb.quicksum(
-                    [delta_lim_machine_DEB[id_arr][i]
-                     for i in range(N_machines[Machines.DEB] // 2 + 1)]
+                    [
+                        delta_lim_machine_DEB[id_arr][i]
+                        for i in range(N_machines[Machines.DEB] // 2 + 1)
+                    ]
                 )
                 == 1
             )
@@ -386,12 +583,12 @@ def contraintes_ouvertures_machines(
             for i in range(1, N_machines[Machines.FOR] // 2):
                 model.addConstr(
                     t_dep[(1, id_dep)]
-                    >= Limites_machines[Machines.FOR][2*i-1]
+                    >= Limites_machines[Machines.FOR][2 * i - 1]
                     - (1 - delta_lim_machine_FOR[id_dep][i]) * M_big
                 )  # Limite inf
                 model.addConstr(
                     t_dep[(1, id_dep)]
-                    <= Limites_machines[Machines.FOR][2*i]
+                    <= Limites_machines[Machines.FOR][2 * i]
                     - Taches.T_DEP[1]
                     + (1 - delta_lim_machine_FOR[id_dep][i]) * M_big
                 )  # Limite sup
@@ -413,8 +610,10 @@ def contraintes_ouvertures_machines(
             # Une seule de ces conditions peut être vraie
             model.addConstr(
                 grb.quicksum(
-                    [delta_lim_machine_FOR[id_dep][i]
-                     for i in range(N_machines[Machines.FOR] // 2 + 1)]
+                    [
+                        delta_lim_machine_FOR[id_dep][i]
+                        for i in range(N_machines[Machines.FOR] // 2 + 1)
+                    ]
                 )
                 == 1
             )
@@ -441,12 +640,12 @@ def contraintes_ouvertures_machines(
             for i in range(1, N_machines[Machines.DEG] // 2):
                 model.addConstr(
                     t_dep[(3, id_dep)]
-                    >= Limites_machines[Machines.DEG][2*i-1]
+                    >= Limites_machines[Machines.DEG][2 * i - 1]
                     - (1 - delta_lim_machine_DEG[id_dep][i]) * M_big
                 )  # Limite inf
                 model.addConstr(
                     t_dep[(3, id_dep)]
-                    <= Limites_machines[Machines.DEG][2*i]
+                    <= Limites_machines[Machines.DEG][2 * i]
                     - Taches.T_DEP[3]
                     + (1 - delta_lim_machine_DEG[id_dep][i]) * M_big
                 )  # Limite sup
@@ -468,8 +667,10 @@ def contraintes_ouvertures_machines(
             # Une seule de ces conditions peut être vraie
             model.addConstr(
                 grb.quicksum(
-                    [delta_lim_machine_DEG[id_dep][i]
-                     for i in range(N_machines[Machines.DEG] // 2 + 1)]
+                    [
+                        delta_lim_machine_DEG[id_dep][i]
+                        for i in range(N_machines[Machines.DEG] // 2 + 1)
+                    ]
                 )
                 == 1
             )
@@ -487,8 +688,36 @@ def contraintes_ouvertures_chantiers(
     t_dep: dict,
     liste_id_train_depart: list,
     file: str,
-    id_file: int
-) -> (dict, dict):
+    id_file: int,
+) -> tuple[dict, dict, dict]:
+    """
+    Ajoute des contraintes pour respecter les horaires d'ouverture des chantiers
+    et garantir que chaque train respecte les limites d'ouverture des différents chantiers.
+
+    Paramètres :
+    -----------
+    model : grb.Model
+        Modèle d'optimisation Gurobi.
+    t_arr : dict
+        Variables de début des tâches d'arrivée.
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+    t_dep : dict
+        Variables de début des tâches de départ.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+    file : str
+        Nom du fichier de configuration.
+    id_file : int
+        Identifiant du fichier.
+
+    Retourne :
+    ---------
+    tuple[dict, dict, dict]
+        - `delta_lim_chantier_rec` : Contraintes des limites d'ouverture pour les chantiers de type REC.
+        - `delta_lim_chantier_for` : Contraintes des limites d'ouverture pour les chantiers de type FOR.
+        - `delta_lim_chantier_dep` : Contraintes des limites d'ouverture pour les chantiers de type DEP.
+    """
     M_big = 10000000  # Une grande constante pour relacher certaines contraintes
 
     Limites_chantiers = creation_limites_chantiers(file, id_file)
@@ -523,15 +752,14 @@ def contraintes_ouvertures_chantiers(
                 for i in range(1, N_chantiers[Chantiers.REC] // 2):
                     model.addConstr(
                         t_arr[(m, id_arr)]
-                        >= Limites_chantiers[Chantiers.REC][2*i-1]
+                        >= Limites_chantiers[Chantiers.REC][2 * i - 1]
                         - (1 - delta_lim_chantier_rec[m][id_arr][i]) * M_big
                     )  # Limite inférieure (700)
                     model.addConstr(
                         t_arr[(m, id_arr)]
-                        <= Limites_chantiers[Chantiers.REC][2*i]
+                        <= Limites_chantiers[Chantiers.REC][2 * i]
                         - Taches.T_ARR[m]
-                        + (1 - delta_lim_chantier_rec[m][id_arr][i])
-                        * M_big
+                        + (1 - delta_lim_chantier_rec[m][id_arr][i]) * M_big
                     )  # Limite supérieure (1500)
 
                 # Dernier cas : Après la dernière limite (
@@ -551,8 +779,10 @@ def contraintes_ouvertures_chantiers(
                 # Une seule condition peut être vraie (avant, entre ou après les limites)
                 model.addConstr(
                     grb.quicksum(
-                        [delta_lim_chantier_rec[m][id_arr][i]
-                         for i in range(N_chantiers[Chantiers.REC] // 2 + 1)]
+                        [
+                            delta_lim_chantier_rec[m][id_arr][i]
+                            for i in range(N_chantiers[Chantiers.REC] // 2 + 1)
+                        ]
                     )
                     == 1
                 )
@@ -583,15 +813,14 @@ def contraintes_ouvertures_chantiers(
                 for i in range(1, N_chantiers[Chantiers.FOR] // 2):
                     model.addConstr(
                         t_dep[(m, id_dep)]
-                        >= Limites_chantiers[Chantiers.FOR][2*i-1]
+                        >= Limites_chantiers[Chantiers.FOR][2 * i - 1]
                         - (1 - delta_lim_chantier_for[m][id_dep][i]) * M_big
                     )  # Limite inférieure (700)
                     model.addConstr(
                         t_dep[(m, id_dep)]
-                        <= Limites_chantiers[Chantiers.FOR][2*i]
+                        <= Limites_chantiers[Chantiers.FOR][2 * i]
                         - Taches.T_DEP[m]
-                        + (1 - delta_lim_chantier_for[m][id_dep][i])
-                        * M_big
+                        + (1 - delta_lim_chantier_for[m][id_dep][i]) * M_big
                     )  # Limite supérieure (1500)
 
                 # Dernier cas : Après la dernière limite (
@@ -611,8 +840,10 @@ def contraintes_ouvertures_chantiers(
                 # Une seule condition peut être vraie (avant, entre ou après les limites)
                 model.addConstr(
                     grb.quicksum(
-                        [delta_lim_chantier_for[m][id_dep][i]
-                         for i in range(N_chantiers[Chantiers.FOR] // 2 + 1)]
+                        [
+                            delta_lim_chantier_for[m][id_dep][i]
+                            for i in range(N_chantiers[Chantiers.FOR] // 2 + 1)
+                        ]
                     )
                     == 1
                 )
@@ -643,15 +874,14 @@ def contraintes_ouvertures_chantiers(
                 for i in range(1, N_chantiers[Chantiers.DEP] // 2):
                     model.addConstr(
                         t_dep[(m, id_dep)]
-                        >= Limites_chantiers[Chantiers.DEP][2*i-1]
+                        >= Limites_chantiers[Chantiers.DEP][2 * i - 1]
                         - (1 - delta_lim_chantier_dep[m][id_dep][i]) * M_big
                     )  # Limite inférieure (700)
                     model.addConstr(
                         t_dep[(m, id_dep)]
-                        <= Limites_chantiers[Chantiers.DEP][2*i]
+                        <= Limites_chantiers[Chantiers.DEP][2 * i]
                         - Taches.T_DEP[m]
-                        + (1 - delta_lim_chantier_dep[m][id_dep][i])
-                        * M_big
+                        + (1 - delta_lim_chantier_dep[m][id_dep][i]) * M_big
                     )  # Limite supérieure (1500)
 
                 # Dernier cas : Après la dernière limite (
@@ -671,8 +901,10 @@ def contraintes_ouvertures_chantiers(
                 # Une seule condition peut être vraie (avant, entre ou après les limites)
                 model.addConstr(
                     grb.quicksum(
-                        [delta_lim_chantier_dep[m][id_dep][i]
-                         for i in range(N_chantiers[Chantiers.DEP] // 2 + 1)]
+                        [
+                            delta_lim_chantier_dep[m][id_dep][i]
+                            for i in range(N_chantiers[Chantiers.DEP] // 2 + 1)
+                        ]
                     )
                     == 1
                 )
@@ -691,7 +923,32 @@ def contraintes_succession(
     liste_id_train_depart: list,
     dict_correspondances: dict,
 ) -> bool:
-    """Contrainte de succession des tâches sur les trains d'arrivées et des tâches sur les trains de départ en tenant compte de la correspondance des wagons"""
+    """
+    Ajoute des contraintes de succession entre les tâches d'arrivée et de départ
+    des trains, en tenant compte des correspondances de wagons.
+
+    Paramètres :
+    ------------
+    model : grb.Model
+        Modèle Gurobi pour ajouter les contraintes.
+
+    t_arr : dict
+        Temps de début des tâches d'arrivée.
+
+    t_dep : dict
+        Temps de début des tâches de départ.
+
+    liste_id_train_depart : list
+        Identifiants des trains de départ.
+
+    dict_correspondances : dict
+        Correspondances entre trains de départ et d'arrivée.
+
+    Retourne :
+    ----------
+    bool
+        True si les contraintes sont ajoutées.
+    """
     for id_dep in liste_id_train_depart:
         for id_arr in dict_correspondances[id_dep]:
             model.addConstr(

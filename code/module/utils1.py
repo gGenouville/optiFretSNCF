@@ -188,7 +188,8 @@ def dernier_depart(df_sillons_dep, base_time_value):
 
     # Calculer l'heure en minutes depuis le jour 1 à 00:00
     dernier_depart_minutes = (
-        dernier_depart_value - base_time_value).total_seconds() / 60
+        dernier_depart_value - base_time_value
+    ).total_seconds() / 60
 
     return dernier_depart_minutes
 
@@ -236,7 +237,9 @@ def convertir_en_minutes(
         plages_etendues.extend(nouvelles_plages)
 
         # Vérifier si la dernière plage dépasse l'heure du dernier train
-        if nouvelles_plages[-1][1] > dernier_depart(df_sillons_dep, base_time(id_file)):
+        if nouvelles_plages[-1][1] > dernier_depart(
+            df_sillons_dep, base_time(id_file)
+        ):
             break
 
         semaine += 1  # Passer à la semaine suivante

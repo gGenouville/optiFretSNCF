@@ -1,0 +1,23 @@
+[project]
+name = "optiFretSNCF"
+version = "0.1.0"
+description = "Projet optiFretSNCF"
+authors = ["p,n f<p.n@student-cs.fr> for p,n in zip(prenoms, noms)"]
+requires-python = ">=3.11"
+
+dependencies = [
+    "numpy",
+    "gurobipy",
+    "pandas",
+    "openpyxl",
+    "plotly",
+    "nbformat",
+    "matplotlib",
+    "ipykernel",
+    "ipympl"
+]
+
+[tool.uv]
+dev-dependencies = [
+    "ruff"
+]

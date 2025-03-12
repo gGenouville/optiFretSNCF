@@ -16,6 +16,8 @@ init_model : Initialise le modèle Gurobi avec les contraintes de base.
 
 import gurobipy as grb
 import numpy as np
+from tqdm import tqdm
+from itertools import product
 from module.utils1 import (
     creation_limites_machines,
     creation_limites_chantiers,
@@ -83,6 +85,9 @@ def init_model(
     dict_correspondances: dict,
     file: str,
     id_file: int,
+    limites_voies: dict,
+    tempsMax: int,
+    tempsMin: int,
 ) -> tuple[grb.Model, dict, dict]:
     """
     Initialise le modèle d'optimisation avec les variables et contraintes.
@@ -92,11 +97,11 @@ def init_model(
     liste_id_train_arrivee : list
         Identifiants des trains à l'arrivée.
     t_a : dict
-        Durée des tâches d'arrivée.
+        Temps d'arrivée à la gare de fret des trains.
     liste_id_train_depart : list
         Identifiants des trains au départ.
     t_d : dict
-        Durée des tâches de départ.
+        Temps de départ de la gare de fret des trains.
     dict_correspondances : dict
         Correspondances entre trains d'arrivée et de départ.
     file : str
@@ -130,6 +135,9 @@ def init_model(
         dict_correspondances,
         file,
         id_file,
+        limites_voies,
+        tempsMax,
+        tempsMin,
     )
 
     # Choix d'un paramétrage d'affichage
@@ -234,6 +242,9 @@ def init_contraintes(
     dict_correspondances: dict,
     file: str,
     id_file: int,
+    limites_voies: dict,
+    tempsMax: int,
+    tempsMin: int,
 ) -> bool:
     """
     Initialise les contraintes du modèle d'optimisation.
@@ -310,6 +321,17 @@ def init_contraintes(
         t_dep,
         liste_id_train_depart,
         dict_correspondances,
+    )
+
+    contraintes_nombre_voies(
+        model,
+        t_arr,
+        t_dep,
+        liste_id_train_arrivee,
+        liste_id_train_depart,
+        limites_voies,
+        tempsMax,
+        tempsMin
     )
 
     return True
@@ -953,4 +975,82 @@ def contraintes_succession(
             model.addConstr(
                 t_dep[(1, id_dep)] >= t_arr[(3, id_arr)] + Taches.T_ARR[3]
             )
+    return True
+
+
+def contraintes_nombre_voies(
+    model: grb.Model,
+    t_arr: dict,
+    t_dep: dict,
+    liste_id_train_arrivee: list,
+    liste_id_train_depart: list,
+    limites_voies: dict,
+    tempsMax: int,
+    tempsMin: int = 0,
+) -> bool:
+
+    Mbig = 1000000
+
+    t_start = {
+        Chantiers.REC: {id_train: t_arr[(1, id_train)] for id_train in liste_id_train_arrivee},
+        Chantiers.FOR: {id_train: t_dep[(1, id_train)] for id_train in liste_id_train_depart},
+        Chantiers.DEP: {id_train: t_dep[(4, id_train)]
+                        for id_train in liste_id_train_depart}
+    }
+    t_end = {
+        Chantiers.REC: {id_train: t_arr[(3, id_train)] + Taches.T_ARR[3] for id_train in liste_id_train_arrivee},
+        Chantiers.FOR: {id_train: t_dep[(3, id_train)] + Taches.T_DEP[3] for id_train in liste_id_train_depart},
+        Chantiers.DEP: {id_train: t_dep[(
+            4, id_train)] + Taches.T_DEP[4] for id_train in liste_id_train_depart}
+    }
+
+    # Créer des variables binaires : est-ce que le train est présent ?
+    is_present = {
+        Chantiers.REC: {(id_train, t): model.addVar(vtype=grb.GRB.BINARY, name=f"is_present_REC_{id_train}_{t}")
+                        for id_train in liste_id_train_arrivee for t in range(tempsMin, tempsMax+1)},
+        Chantiers.FOR: {(id_train, t): model.addVar(vtype=grb.GRB.BINARY, name=f"is_present_FOR_{id_train}_{t}")
+                        for id_train in liste_id_train_depart for t in range(tempsMin, tempsMax+1)},
+        Chantiers.DEP: {(id_train, t): model.addVar(vtype=grb.GRB.BINARY, name=f"is_present_DEP_{id_train}_{t}")
+                        for id_train in liste_id_train_depart for t in range(tempsMin, tempsMax+1)}
+    }
+
+    print(is_present)
+
+    for id_train in liste_id_train_arrivee:
+        for t in range(tempsMin, tempsMax+1):  # Parcours du temps
+            # Si le train est présent, t_start <= t <= t_end
+            model.addConstr(t_start[Chantiers.REC][id_train] <= t +
+                            (1 - is_present[Chantiers.REC][(id_train, t)]) * Mbig)
+            model.addConstr(t_end[Chantiers.REC][id_train] >= t -
+                            (1 - is_present[Chantiers.REC][(id_train, t)]) * Mbig)
+
+    for id_train in liste_id_train_depart:
+        for t in range(tempsMin, tempsMax+1):  # Parcours du temps
+            # Si le train est présent, t_start <= t <= t_end
+            model.addConstr(t_start[Chantiers.FOR][id_train] <= t +
+                            (1 - is_present[Chantiers.FOR][(id_train, t)]) * Mbig)
+            model.addConstr(t_end[Chantiers.FOR][id_train] >= t -
+                            (1 - is_present[Chantiers.FOR][(id_train, t)]) * Mbig)
+            model.addConstr(t_start[Chantiers.DEP][id_train] <= t +
+                            (1 - is_present[Chantiers.DEP][(id_train, t)]) * Mbig)
+            model.addConstr(t_end[Chantiers.DEP][id_train] >= t -
+                            (1 - is_present[Chantiers.DEP][(id_train, t)]) * Mbig)
+
+    for t in tqdm(range(tempsMin, tempsMax + 1)):
+        model.addConstr(
+            grb.quicksum([is_present[Chantiers.REC][(id_train, t)]
+                         for id_train in liste_id_train_arrivee])
+            <= limites_voies[Chantiers.REC]
+        )
+        model.addConstr(
+            grb.quicksum([is_present[Chantiers.FOR][(id_train, t)]
+                         for id_train in liste_id_train_depart])
+            <= limites_voies[Chantiers.FOR]
+        )
+        model.addConstr(
+            grb.quicksum([is_present[Chantiers.DEP][(id_train, t)]
+                         for id_train in liste_id_train_depart])
+            <= limites_voies[Chantiers.DEP]
+        )
+
     return True

@@ -990,21 +990,27 @@ def contraintes_nombre_voies(
 ) -> bool:
 
     Mbig = 1000000
-
-    t_start = {
-        Chantiers.REC: {id_train: t_arr[(1, id_train)] for id_train in liste_id_train_arrivee},
-        Chantiers.FOR: {id_train: t_dep[(1, id_train)] for id_train in liste_id_train_depart},
-        Chantiers.DEP: {id_train: t_dep[(4, id_train)]
-                        for id_train in liste_id_train_depart}
-    }
-    t_end = {
-        Chantiers.REC: {id_train: t_arr[(3, id_train)] + Taches.T_ARR[3] for id_train in liste_id_train_arrivee},
-        Chantiers.FOR: {id_train: t_dep[(3, id_train)] + Taches.T_DEP[3] for id_train in liste_id_train_depart},
-        Chantiers.DEP: {id_train: t_dep[(
-            4, id_train)] + Taches.T_DEP[4] for id_train in liste_id_train_depart}
-    }
+    eps = 0.1
 
     # Créer des variables binaires : est-ce que le train est présent ?
+    before_upper_bound = {
+        Chantiers.REC: {(id_train, t): model.addVar(vtype=grb.GRB.BINARY, name=f"before_ub_REC_{id_train}_{t}")
+                        for id_train in liste_id_train_arrivee for t in range(tempsMin, tempsMax+1)},
+        Chantiers.FOR: {(id_train, t): model.addVar(vtype=grb.GRB.BINARY, name=f"before_ub_FOR_{id_train}_{t}")
+                        for id_train in liste_id_train_depart for t in range(tempsMin, tempsMax+1)},
+        Chantiers.DEP: {(id_train, t): model.addVar(vtype=grb.GRB.BINARY, name=f"before_ub_DEP_{id_train}_{t}")
+                        for id_train in liste_id_train_depart for t in range(tempsMin, tempsMax+1)}
+    }
+
+    after_lower_bound = {
+        Chantiers.REC: {(id_train, t): model.addVar(vtype=grb.GRB.BINARY, name=f"after_lb_REC_{id_train}_{t}")
+                        for id_train in liste_id_train_arrivee for t in range(tempsMin, tempsMax+1)},
+        Chantiers.FOR: {(id_train, t): model.addVar(vtype=grb.GRB.BINARY, name=f"after_lb_FOR_{id_train}_{t}")
+                        for id_train in liste_id_train_depart for t in range(tempsMin, tempsMax+1)},
+        Chantiers.DEP: {(id_train, t): model.addVar(vtype=grb.GRB.BINARY, name=f"after_lb_DEP_{id_train}_{t}")
+                        for id_train in liste_id_train_depart for t in range(tempsMin, tempsMax+1)}
+    }
+
     is_present = {
         Chantiers.REC: {(id_train, t): model.addVar(vtype=grb.GRB.BINARY, name=f"is_present_REC_{id_train}_{t}")
                         for id_train in liste_id_train_arrivee for t in range(tempsMin, tempsMax+1)},
@@ -1014,34 +1020,77 @@ def contraintes_nombre_voies(
                         for id_train in liste_id_train_depart for t in range(tempsMin, tempsMax+1)}
     }
 
-    print(is_present)
-
     for id_train in liste_id_train_arrivee:
         for t in range(tempsMin, tempsMax+1):  # Parcours du temps
             # Si le train est présent, t_start <= t <= t_end
-            model.addConstr(t_start[Chantiers.REC][id_train] <= t +
-                            (1 - is_present[Chantiers.REC][(id_train, t)]) * Mbig)
-            model.addConstr(t_end[Chantiers.REC][id_train] >= t -
-                            (1 - is_present[Chantiers.REC][(id_train, t)]) * Mbig)
+            # is_present => t_arr[(1, id_train)] <= t
+            model.addConstr(
+                t >= t_arr[(1, id_train)] - Mbig * (1 -
+                                                    after_lower_bound[Chantiers.REC][(id_train, t)]),
+                name=f"after_lower_bound_REC_{id_train}_{t}"
+            )
+            model.addConstr(t <= t_arr[(1, id_train)] - eps + Mbig *
+                            after_lower_bound[Chantiers.REC][(id_train, t)], name="bigM_constr_REC_after_lb")
+
+            model.addConstr(
+                t <= t_arr[(3, id_train)] + Taches.T_ARR[3] + Mbig *
+                (1 - before_upper_bound[Chantiers.REC][(id_train, t)]),
+                name=f"before_upper_bound_REC_{id_train}_{t}"
+            )
+            model.addConstr(t >= t_arr[(3, id_train)] + Taches.T_ARR[3] + eps - Mbig *
+                            before_upper_bound[Chantiers.REC][(id_train, t)], name="bigM_constr_REC_before_ub")
+
+            model.addGenConstrAnd(is_present[Chantiers.REC][(id_train, t)], [after_lower_bound[Chantiers.REC][(
+                id_train, t)], before_upper_bound[Chantiers.REC][(id_train, t)]], "andconstr_REC")
 
     for id_train in liste_id_train_depart:
         for t in range(tempsMin, tempsMax+1):  # Parcours du temps
             # Si le train est présent, t_start <= t <= t_end
-            model.addConstr(t_start[Chantiers.FOR][id_train] <= t +
-                            (1 - is_present[Chantiers.FOR][(id_train, t)]) * Mbig)
-            model.addConstr(t_end[Chantiers.FOR][id_train] >= t -
-                            (1 - is_present[Chantiers.FOR][(id_train, t)]) * Mbig)
-            model.addConstr(t_start[Chantiers.DEP][id_train] <= t +
-                            (1 - is_present[Chantiers.DEP][(id_train, t)]) * Mbig)
-            model.addConstr(t_end[Chantiers.DEP][id_train] >= t -
-                            (1 - is_present[Chantiers.DEP][(id_train, t)]) * Mbig)
+            model.addConstr(
+                t >= t_dep[(1, id_train)] - Mbig * (1 -
+                                                    after_lower_bound[Chantiers.FOR][(id_train, t)]),
+                name=f"after_lower_bound_FOR_{id_train}_{t}"
+            )
+            model.addConstr(t <= t_dep[(1, id_train)] - eps + Mbig *
+                            after_lower_bound[Chantiers.FOR][(id_train, t)], name="bigM_constr_FOR_after_lb")
+
+            model.addConstr(
+                t <= t_dep[(3, id_train)] + Taches.T_DEP[3] + Mbig *
+                (1 - before_upper_bound[Chantiers.FOR][(id_train, t)]),
+                name=f"before_upper_bound_FOR_{id_train}_{t}"
+            )
+            model.addConstr(t >= t_dep[(3, id_train)] + Taches.T_DEP[3] + eps - Mbig *
+                            before_upper_bound[Chantiers.FOR][(id_train, t)], name="bigM_constr_FOR_before_ub")
+
+            model.addGenConstrAnd(is_present[Chantiers.FOR][(id_train, t)], [after_lower_bound[Chantiers.FOR][(
+                id_train, t)], before_upper_bound[Chantiers.FOR][(id_train, t)]], "andconstr_FOR")
+
+            model.addConstr(
+                t >= t_dep[(4, id_train)] - Mbig * (1 -
+                                                    after_lower_bound[Chantiers.DEP][(id_train, t)]),
+                name=f"after_lower_bound_DEP_{id_train}_{t}"
+            )
+            model.addConstr(t <= t_dep[(4, id_train)] - eps + Mbig *
+                            after_lower_bound[Chantiers.DEP][(id_train, t)], name="bigM_constr_DEP_after_lb")
+
+            model.addConstr(
+                t <= t_dep[(4, id_train)] + Taches.T_DEP[4] + Mbig *
+                (1 - before_upper_bound[Chantiers.DEP][(id_train, t)]),
+                name=f"before_upper_bound_DEP_{id_train}_{t}"
+            )
+            model.addConstr(t >= t_dep[(4, id_train)] + Taches.T_DEP[4] + eps - Mbig *
+                            before_upper_bound[Chantiers.DEP][(id_train, t)], name="bigM_constr_DEP_before_ub")
+
+            model.addGenConstrAnd(is_present[Chantiers.DEP][(id_train, t)], [after_lower_bound[Chantiers.DEP][(
+                id_train, t)], before_upper_bound[Chantiers.DEP][(id_train, t)]], "andconstr_DEP")
 
     for t in tqdm(range(tempsMin, tempsMax + 1)):
         model.addConstr(
-            grb.quicksum([is_present[Chantiers.REC][(id_train, t)]
-                         for id_train in liste_id_train_arrivee])
+            grb.quicksum(is_present[Chantiers.REC][(id_train, t)]
+                         for id_train in liste_id_train_arrivee)
             <= limites_voies[Chantiers.REC]
         )
+
         model.addConstr(
             grb.quicksum([is_present[Chantiers.FOR][(id_train, t)]
                          for id_train in liste_id_train_depart])

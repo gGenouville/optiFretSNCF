@@ -162,6 +162,7 @@ class Colonnes:
     DATE_ARRIVEE = "Jour arrivee"
     DATE_DEPART = "Jour depart"
     ID_WAGON = "Id wagon"
+    NOMBRE_VOIES = "Nombre de voies"
 
     INDISPONIBILITE = "Indisponibilites"
     INDISPONIBILITE_MINUTES = "Indisponibilites etendues en minutes"
@@ -395,6 +396,42 @@ def dernier_depart(df_sillons_dep, base_time_value):
     return dernier_depart_minutes
 
 
+def premiere_arrivee(df_sillons_arr, base_time_value):
+    """
+    Calcule le temps en minutes écoulé depuis une date de référence jusqu'au
+    dernier départ dans le DataFrame.
+
+    Paramètres :
+    -----------
+    df_sillons_dep : pd.DataFrame
+        DataFrame contenant les données des sillons de départ.
+    base_time_value : pd.Timestamp
+        Date de référence pour le calcul des minutes écoulées.
+
+    Retourne :
+    ----------
+    float
+        Temps en minutes écoulé depuis la date de référence jusqu'au dernier
+        départ.
+    """
+    # Convertir les dates et heures en datetime
+    df_sillons_arr["Datetime"] = pd.to_datetime(
+        df_sillons_arr["JDEP"].astype(str)
+        + " "
+        + df_sillons_arr["HDEP"].astype(str)
+    )
+
+    # Trouver l'heure de départ la plus tardive
+    premiere_arrivee_value = df_sillons_arr["Datetime"].min()
+
+    # Calculer l'heure en minutes depuis le jour 1 à 00:00
+    premiere_arrivee_minutes = (
+        premiere_arrivee_value - base_time_value
+    ).total_seconds() / 60
+
+    return premiere_arrivee_minutes
+
+
 def convertir_en_minutes(
     indisponibilites,
     file,
@@ -610,3 +647,28 @@ def base_time(id_file: int) -> pd.Timestamp:
         return pd.Timestamp("2023-05-01 00:00")
     elif id_file == 1:
         return pd.Timestamp("2022-08-08 00:00")
+
+
+def init_limites_voies(file: str):
+    """
+    Définit le nombre de voies utilisables au maximum sur les différents chantiers.
+
+    Paramètres :
+    -----------
+    file : str
+        Chemin du fichier Excel contenant les données des chantiers.
+
+    Retourne :
+    ----------
+    dict
+        Dictionnaire contenant le nombre maximal de voies utilisables pour
+        chaque chantier (REC, FOR, DEP).
+    """
+    df_chantiers = pd.read_excel(file, sheet_name=Feuilles.CHANTIERS)
+
+    limites_chantiers_voies = {
+        Chantiers.REC: int(df_chantiers[Colonnes.NOMBRE_VOIES].astype(str)[0]),
+        Chantiers.FOR: int(df_chantiers[Colonnes.NOMBRE_VOIES].astype(str)[1]),
+        Chantiers.DEP: int(df_chantiers[Colonnes.NOMBRE_VOIES].astype(str)[2]),
+    }
+    return limites_chantiers_voies

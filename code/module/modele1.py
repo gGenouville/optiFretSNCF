@@ -277,6 +277,7 @@ def init_contraintes(
     bool
         Toujours True après l'initialisation des contraintes.
     """
+
     contraintes_temporalite(
         model,
         t_arr,
@@ -373,23 +374,23 @@ def contraintes_temporalite(
         Toujours True après l'ajout des contraintes de temporalité.
     """
     for id_train_arr in liste_id_train_arrivee:
-        model.addConstr(t_arr[(1, id_train_arr)] >= t_a[id_train_arr])
+        model.addConstr(15*t_arr[(1, id_train_arr)] >= t_a[id_train_arr])
         for m in Taches.TACHES_ARRIVEE[:-1]:
             model.addConstr(
-                t_arr[(m, id_train_arr)] + Taches.T_ARR[m]
-                <= t_arr[(m + 1, id_train_arr)]
+                15*t_arr[(m, id_train_arr)] + Taches.T_ARR[m]
+                <= 15*t_arr[(m + 1, id_train_arr)]
             )
 
     for id_train_dep in liste_id_train_depart:
         M_dep = Taches.TACHES_DEPART[-1]
         model.addConstr(
-            t_dep[(M_dep, id_train_dep)] + Taches.T_DEP[M_dep]
+            15*t_dep[(M_dep, id_train_dep)] + Taches.T_DEP[M_dep]
             <= t_d[id_train_dep]
         )
         for m in Taches.TACHES_DEPART[:-1]:
             model.addConstr(
-                t_dep[(m, id_train_dep)] + Taches.T_DEP[m]
-                <= t_dep[(m + 1, id_train_dep)]
+                15*t_dep[(m, id_train_dep)] + Taches.T_DEP[m]
+                <= 15*t_dep[(m + 1, id_train_dep)]
             )
     return True
 
@@ -439,15 +440,15 @@ def contraintes_machines(
 
                     # Si delta = 1, alors id_arr_2 se termine avant id_arr_1
                     model.addConstr(
-                        t_arr[(m_arr, id_arr_2)] + Taches.T_ARR[m_arr]
-                        <= t_arr[(m_arr, id_arr_1)]
+                        15*t_arr[(m_arr, id_arr_2)] + Taches.T_ARR[m_arr]
+                        <= 15*t_arr[(m_arr, id_arr_1)]
                         + (1 - delta_arr[(m_arr, id_arr_1, id_arr_2)]) * M_big
                     )
 
                     # Si delta = 0, alors id_arr_1 se termine avant id_arr_2
                     model.addConstr(
-                        t_arr[(m_arr, id_arr_2)]
-                        >= t_arr[(m_arr, id_arr_1)]
+                        15*t_arr[(m_arr, id_arr_2)]
+                        >= 15*t_arr[(m_arr, id_arr_1)]
                         + Taches.T_ARR[m_arr]
                         - delta_arr[(m_arr, id_arr_1, id_arr_2)] * M_big
                     )
@@ -465,15 +466,15 @@ def contraintes_machines(
 
                     # Si delta = 1, alors id_dep_2 se termine avant id_dep_1
                     model.addConstr(
-                        t_dep[(m_dep, id_dep_2)] + Taches.T_DEP[m_dep]
-                        <= t_dep[(m_dep, id_dep_1)]
+                        15*t_dep[(m_dep, id_dep_2)] + Taches.T_DEP[m_dep]
+                        <= 15*t_dep[(m_dep, id_dep_1)]
                         + (1 - delta_dep[(m_dep, id_dep_1, id_dep_2)]) * M_big
                     )
 
                     # Si delta = 0, alors id_dep_1 se termine avant id_dep_2
                     model.addConstr(
-                        t_dep[(m_dep, id_dep_2)]
-                        >= t_dep[(m_dep, id_dep_1)]
+                        15*t_dep[(m_dep, id_dep_2)]
+                        >= 15*t_dep[(m_dep, id_dep_1)]
                         + Taches.T_DEP[m_dep]
                         - delta_dep[(m_dep, id_dep_1, id_dep_2)] * M_big
                     )
@@ -537,7 +538,7 @@ def contraintes_ouvertures_machines(
             )  # N//2 + 1  contraintes
             # Premier cas : Avant la première limite
             model.addConstr(
-                t_arr[(3, id_arr)]
+                15*t_arr[(3, id_arr)]
                 <= Limites_machines[Machines.DEB][0]
                 - Taches.T_ARR[3]
                 + (1 - delta_lim_machine_DEB[id_arr][0]) * M_big
@@ -546,12 +547,12 @@ def contraintes_ouvertures_machines(
             # Cas intermédiaires : Entre Limites
             for i in range(1, N_machines[Machines.DEB] // 2):
                 model.addConstr(
-                    t_arr[(3, id_arr)]
+                    15*t_arr[(3, id_arr)]
                     >= Limites_machines[Machines.DEB][2 * i - 1]
                     - (1 - delta_lim_machine_DEB[id_arr][i]) * M_big
                 )
                 model.addConstr(
-                    t_arr[(3, id_arr)]
+                    15*t_arr[(3, id_arr)]
                     <= Limites_machines[Machines.DEB][2 * i]
                     - Taches.T_ARR[3]
                     + (1 - delta_lim_machine_DEB[id_arr][i]) * M_big
@@ -560,15 +561,10 @@ def contraintes_ouvertures_machines(
             # Dernier cas : Après la dernière limite (
             if N_machines[Machines.DEB] % 2 == 0:
                 model.addConstr(
-                    t_arr[(3, id_arr)]
+                    15*t_arr[(3, id_arr)]
                     >= Limites_machines[Machines.DEB][-1]
-                    - (
-                        1
-                        - delta_lim_machine_DEB[id_arr][
-                            N_machines[Machines.DEB] // 2
-                        ]
-                    )
-                    * M_big
+                    - (1 - delta_lim_machine_DEB[id_arr]
+                       [N_machines[Machines.DEB] // 2]) * M_big
                 )
 
             # Une seule condition peut être vraie (avant, entre ou après les limites)
@@ -594,7 +590,7 @@ def contraintes_ouvertures_machines(
 
             # Premier cas : Avant la première limite
             model.addConstr(
-                t_dep[(1, id_dep)]
+                15*t_dep[(1, id_dep)]
                 <= Limites_machines[Machines.FOR][0]
                 - Taches.T_DEP[1]
                 + (1 - delta_lim_machine_FOR[id_dep][0]) * M_big
@@ -603,12 +599,12 @@ def contraintes_ouvertures_machines(
             # Cas intermédiaires
             for i in range(1, N_machines[Machines.FOR] // 2):
                 model.addConstr(
-                    t_dep[(1, id_dep)]
+                    15*t_dep[(1, id_dep)]
                     >= Limites_machines[Machines.FOR][2 * i - 1]
                     - (1 - delta_lim_machine_FOR[id_dep][i]) * M_big
                 )  # Limite inf
                 model.addConstr(
-                    t_dep[(1, id_dep)]
+                    15*t_dep[(1, id_dep)]
                     <= Limites_machines[Machines.FOR][2 * i]
                     - Taches.T_DEP[1]
                     + (1 - delta_lim_machine_FOR[id_dep][i]) * M_big
@@ -617,7 +613,7 @@ def contraintes_ouvertures_machines(
             # Dernier cas : Après la dernière limite
             if N_machines[Machines.FOR] % 2 == 0:
                 model.addConstr(
-                    t_dep[(1, id_dep)]
+                    15*t_dep[(1, id_dep)]
                     >= Limites_machines[Machines.FOR][-1]
                     - (
                         1
@@ -651,7 +647,7 @@ def contraintes_ouvertures_machines(
 
             # Premier cas : Avant la première limite
             model.addConstr(
-                t_dep[(3, id_dep)]
+                15*t_dep[(3, id_dep)]
                 <= Limites_machines[Machines.DEG][0]
                 - Taches.T_DEP[3]
                 + (1 - delta_lim_machine_DEG[id_dep][0]) * M_big
@@ -660,12 +656,12 @@ def contraintes_ouvertures_machines(
             # Cas intermédiaires : Entre Limites
             for i in range(1, N_machines[Machines.DEG] // 2):
                 model.addConstr(
-                    t_dep[(3, id_dep)]
+                    15*t_dep[(3, id_dep)]
                     >= Limites_machines[Machines.DEG][2 * i - 1]
                     - (1 - delta_lim_machine_DEG[id_dep][i]) * M_big
                 )  # Limite inf
                 model.addConstr(
-                    t_dep[(3, id_dep)]
+                    15*t_dep[(3, id_dep)]
                     <= Limites_machines[Machines.DEG][2 * i]
                     - Taches.T_DEP[3]
                     + (1 - delta_lim_machine_DEG[id_dep][i]) * M_big
@@ -674,7 +670,7 @@ def contraintes_ouvertures_machines(
             # Dernier cas : Après la dernière limite
             if N_machines[Machines.DEG] % 2 == 0:
                 model.addConstr(
-                    t_dep[(3, id_dep)]
+                    15*t_dep[(3, id_dep)]
                     >= Limites_machines[Machines.DEG][-1]
                     - (
                         1
@@ -763,7 +759,7 @@ def contraintes_ouvertures_chantiers(
 
                 # Premier cas : Avant la première limite
                 model.addConstr(
-                    t_arr[(m, id_arr)]
+                    15*t_arr[(m, id_arr)]
                     <= Limites_chantiers[Chantiers.REC][0]
                     - Taches.T_ARR[m]
                     + (1 - delta_lim_chantier_rec[m][id_arr][0]) * M_big
@@ -772,12 +768,12 @@ def contraintes_ouvertures_chantiers(
                 # Cas intermédiaires : Entre Limites
                 for i in range(1, N_chantiers[Chantiers.REC] // 2):
                     model.addConstr(
-                        t_arr[(m, id_arr)]
+                        15*t_arr[(m, id_arr)]
                         >= Limites_chantiers[Chantiers.REC][2 * i - 1]
                         - (1 - delta_lim_chantier_rec[m][id_arr][i]) * M_big
                     )  # Limite inférieure (700)
                     model.addConstr(
-                        t_arr[(m, id_arr)]
+                        15*t_arr[(m, id_arr)]
                         <= Limites_chantiers[Chantiers.REC][2 * i]
                         - Taches.T_ARR[m]
                         + (1 - delta_lim_chantier_rec[m][id_arr][i]) * M_big
@@ -786,7 +782,7 @@ def contraintes_ouvertures_chantiers(
                 # Dernier cas : Après la dernière limite (
                 if N_chantiers[Chantiers.REC] % 2 == 0:
                     model.addConstr(
-                        t_arr[(m, id_arr)]
+                        15*t_arr[(m, id_arr)]
                         >= Limites_chantiers[Chantiers.REC][-1]
                         - (
                             1
@@ -824,7 +820,7 @@ def contraintes_ouvertures_chantiers(
 
                 # Premier cas : Avant la première limite
                 model.addConstr(
-                    t_dep[(m, id_dep)]
+                    15*t_dep[(m, id_dep)]
                     <= Limites_chantiers[Chantiers.FOR][0]
                     - Taches.T_DEP[m]
                     + (1 - delta_lim_chantier_for[m][id_dep][0]) * M_big
@@ -833,12 +829,12 @@ def contraintes_ouvertures_chantiers(
                 # Cas intermédiaires : Entre Limites
                 for i in range(1, N_chantiers[Chantiers.FOR] // 2):
                     model.addConstr(
-                        t_dep[(m, id_dep)]
+                        15*t_dep[(m, id_dep)]
                         >= Limites_chantiers[Chantiers.FOR][2 * i - 1]
                         - (1 - delta_lim_chantier_for[m][id_dep][i]) * M_big
                     )  # Limite inférieure (700)
                     model.addConstr(
-                        t_dep[(m, id_dep)]
+                        15*t_dep[(m, id_dep)]
                         <= Limites_chantiers[Chantiers.FOR][2 * i]
                         - Taches.T_DEP[m]
                         + (1 - delta_lim_chantier_for[m][id_dep][i]) * M_big
@@ -847,7 +843,7 @@ def contraintes_ouvertures_chantiers(
                 # Dernier cas : Après la dernière limite (
                 if N_chantiers[Chantiers.FOR] % 2 == 0:
                     model.addConstr(
-                        t_dep[(m, id_dep)]
+                        15*t_dep[(m, id_dep)]
                         >= Limites_chantiers[Chantiers.FOR][-1]
                         - (
                             1
@@ -885,7 +881,7 @@ def contraintes_ouvertures_chantiers(
 
                 # Premier cas : Avant la première limite
                 model.addConstr(
-                    t_dep[(m, id_dep)]
+                    15*t_dep[(m, id_dep)]
                     <= Limites_chantiers[Chantiers.DEP][0]
                     - Taches.T_DEP[m]
                     + (1 - delta_lim_chantier_dep[m][id_dep][0]) * M_big
@@ -894,12 +890,12 @@ def contraintes_ouvertures_chantiers(
                 # Cas intermédiaires : Entre Limites
                 for i in range(1, N_chantiers[Chantiers.DEP] // 2):
                     model.addConstr(
-                        t_dep[(m, id_dep)]
+                        15*t_dep[(m, id_dep)]
                         >= Limites_chantiers[Chantiers.DEP][2 * i - 1]
                         - (1 - delta_lim_chantier_dep[m][id_dep][i]) * M_big
                     )  # Limite inférieure (700)
                     model.addConstr(
-                        t_dep[(m, id_dep)]
+                        15*t_dep[(m, id_dep)]
                         <= Limites_chantiers[Chantiers.DEP][2 * i]
                         - Taches.T_DEP[m]
                         + (1 - delta_lim_chantier_dep[m][id_dep][i]) * M_big
@@ -908,7 +904,7 @@ def contraintes_ouvertures_chantiers(
                 # Dernier cas : Après la dernière limite (
                 if N_chantiers[Chantiers.DEP] % 2 == 0:
                     model.addConstr(
-                        t_dep[(m, id_dep)]
+                        15*t_dep[(m, id_dep)]
                         >= Limites_chantiers[Chantiers.DEP][-1]
                         - (
                             1
@@ -973,7 +969,8 @@ def contraintes_succession(
     for id_dep in liste_id_train_depart:
         for id_arr in dict_correspondances[id_dep]:
             model.addConstr(
-                t_dep[(1, id_dep)] >= t_arr[(3, id_arr)] + Taches.T_ARR[3]
+                15*t_dep[(1, id_dep)] >= 15 *
+                t_arr[(3, id_arr)] + Taches.T_ARR[3]
             )
     return True
 
@@ -1086,8 +1083,8 @@ def contraintes_nombre_voies(
 
     for t in tqdm(range(tempsMin, tempsMax + 1)):
         model.addConstr(
-            grb.quicksum(is_present[Chantiers.REC][(id_train, t)]
-                         for id_train in liste_id_train_arrivee)
+            grb.quicksum([is_present[Chantiers.REC][(id_train, t)]
+                         for id_train in liste_id_train_arrivee])
             <= limites_voies[Chantiers.REC]
         )
 

@@ -225,7 +225,7 @@ def convert_hour_to_minutes(hour_str: str) -> int | None:
         return None  # Si le format est incorrect
 
 
-def init_t_a(df_sillons_arr: pd.DataFrame, print_bool: bool = False) -> dict:
+def init_t_a(df_sillons_arr: pd.DataFrame, id_file: int, print_bool: bool = False) -> dict:
     """
     Crée un dictionnaire t_a contenant les minutes écoulées depuis une date de
     référence pour chaque train d'arrivée.
@@ -266,10 +266,14 @@ def init_t_a(df_sillons_arr: pd.DataFrame, print_bool: bool = False) -> dict:
                 print(
                     f"Train {train_id_unique} : {Colonnes.SILLON_JARR} = {date_arr.date()}, minutes écoulées = {minutes_since_ref}"
                 )'''
+        # Pour résoudre manuellement le problème sur le fichier excel de la mini_instance
+        if id_file == 0:
+            t_a = {'1': (24+9)*60, '2': (24+13)
+                   * 60, '3': (24+16)*60}
     return t_a
 
 
-def init_t_d(df_sillons_dep: pd.DataFrame, print_bool: bool = False) -> dict:
+def init_t_d(df_sillons_dep: pd.DataFrame, id_file: int, print_bool: bool = False) -> dict:
     """
     Crée un dictionnaire t_d contenant les minutes écoulées depuis une date de
     référence pour chaque train de départ.
@@ -312,10 +316,14 @@ def init_t_d(df_sillons_dep: pd.DataFrame, print_bool: bool = False) -> dict:
                 print(
                     f"Train {train_id_unique} : {Colonnes.SILLON_JDEP} = {date_dep.date()}, minutes écoulées = {minutes_since_ref}"
                 )'''
+        # Pour résoudre manuellement le problème sur le fichier excel de la mini_instance
+        if id_file == 0:
+            t_d = {'4': (24+21)*60, '5': (24+21)
+                   * 60, '6': (24+21)*60+30}
     return t_d
 
 
-def init_dict_correspondance(df_correspondance: pd.DataFrame) -> dict:
+def init_dict_correspondance(df_correspondance: pd.DataFrame, id_file: int) -> dict:
     """
     Crée un dictionnaire des correspondances entre les trains d'arrivée et de
     départ.
@@ -357,6 +365,9 @@ def init_dict_correspondance(df_correspondance: pd.DataFrame) -> dict:
         input_df[Colonnes.ID_TRAIN_DEPART],
     ):
         d[departure_train_id].append(arrival_train_id)
+
+    if id_file == 0:
+        d = {'4': ['2', '3'], '5': ['1', '2'], '6': ['1', '2', '3']}
     return d
 
 

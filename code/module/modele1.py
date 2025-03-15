@@ -373,7 +373,7 @@ def contraintes_temporalite(
     bool
         Toujours True après l'ajout des contraintes de temporalité.
     """
-    for id_train_arr in liste_id_train_arrivee:
+    for id_train_arr in tqdm(liste_id_train_arrivee, "Contrainte assurant la succession des tâches sur les trains d'arrivée"):
         model.addConstr(15*t_arr[(1, id_train_arr)] >= t_a[id_train_arr])
         for m in Taches.TACHES_ARRIVEE[:-1]:
             model.addConstr(
@@ -381,7 +381,7 @@ def contraintes_temporalite(
                 <= 15*t_arr[(m + 1, id_train_arr)]
             )
 
-    for id_train_dep in liste_id_train_depart:
+    for id_train_dep in tqdm(liste_id_train_depart, "Contrainte assurant la succession des tâches sur les trains de départ"):
         M_dep = Taches.TACHES_DEPART[-1]
         model.addConstr(
             15*t_dep[(M_dep, id_train_dep)] + Taches.T_DEP[M_dep]
@@ -430,7 +430,7 @@ def contraintes_machines(
     delta_arr = {}
 
     for m_arr in Taches.TACHES_ARR_MACHINE:
-        for id_arr_1 in liste_id_train_arrivee:
+        for id_arr_1 in tqdm(liste_id_train_arrivee, "Contrainte assurant qu'il n'y a qu'un train niveau de la machine DEB"):
             for id_arr_2 in liste_id_train_arrivee:
                 if id_arr_1 != id_arr_2:
                     delta_arr[(m_arr, id_arr_1, id_arr_2)] = model.addVar(
@@ -455,7 +455,7 @@ def contraintes_machines(
 
     delta_dep = {}
 
-    for m_dep in Taches.TACHES_DEP_MACHINE:
+    for m_dep in tqdm(Taches.TACHES_DEP_MACHINE, "Contrainte assurant qu'il n'y a qu'un train niveau des machines FOR et DEG"):
         for id_dep_1 in liste_id_train_depart:
             for id_dep_2 in liste_id_train_depart:
                 if id_dep_1 != id_dep_2:
@@ -530,7 +530,7 @@ def contraintes_ouvertures_machines(
     delta_lim_machine_DEB = {}
 
     if N_machines[Machines.DEB] > 0:
-        for id_arr in liste_id_train_arrivee:
+        for id_arr in tqdm(liste_id_train_arrivee, "Contrainte de fermeture de la machine DEB"):
             delta_lim_machine_DEB[id_arr] = model.addVars(
                 N_machines[Machines.DEB] // 2 + 1,
                 vtype=grb.GRB.BINARY,
@@ -581,7 +581,7 @@ def contraintes_ouvertures_machines(
     delta_lim_machine_FOR = {}
 
     if N_machines[Machines.FOR] > 0:
-        for id_dep in liste_id_train_depart:
+        for id_dep in tqdm(liste_id_train_depart, "Contrainte de fermeture de la machine FOR"):
             delta_lim_machine_FOR[id_dep] = model.addVars(
                 N_machines[Machines.FOR] // 2 + 1,
                 vtype=grb.GRB.BINARY,
@@ -638,7 +638,7 @@ def contraintes_ouvertures_machines(
     delta_lim_machine_DEG = {}
 
     if N_machines[Machines.DEG] > 0:
-        for id_dep in liste_id_train_depart:
+        for id_dep in tqdm(liste_id_train_depart, "Contrainte de fermeture de la machine DEG"):
             delta_lim_machine_DEG[id_dep] = model.addVars(
                 N_machines[Machines.DEG] // 2 + 1,
                 vtype=grb.GRB.BINARY,
@@ -746,7 +746,7 @@ def contraintes_ouvertures_chantiers(
     delta_lim_chantier_rec = {1: {}, 2: {}, 3: {}}
 
     if N_chantiers[Chantiers.REC] > 0:
-        for id_arr in liste_id_train_arrivee:
+        for id_arr in tqdm(liste_id_train_arrivee, "Contrainte de fermeture du Chantier REC"):
             for m in range(
                 min(delta_lim_chantier_rec.keys()),
                 max(delta_lim_chantier_rec.keys()) + 1,
@@ -807,7 +807,7 @@ def contraintes_ouvertures_chantiers(
     delta_lim_chantier_for = {1: {}, 2: {}, 3: {}}
 
     if N_chantiers[Chantiers.FOR] > 0:
-        for id_dep in liste_id_train_depart:
+        for id_dep in tqdm(liste_id_train_depart, "Contrainte de fermeture du Chantier FOR"):
             for m in range(
                 min(delta_lim_chantier_for.keys()),
                 max(delta_lim_chantier_for.keys()) + 1,
@@ -868,7 +868,7 @@ def contraintes_ouvertures_chantiers(
     delta_lim_chantier_dep = {4: {}}
 
     if N_chantiers[Chantiers.DEP] > 0:
-        for id_dep in liste_id_train_depart:
+        for id_dep in tqdm(liste_id_train_depart, "Contrainte de fermeture du Chantier DEG"):
             for m in range(
                 min(delta_lim_chantier_dep.keys()),
                 max(delta_lim_chantier_dep.keys()) + 1,
@@ -966,7 +966,7 @@ def contraintes_succession(
     bool
         True si les contraintes sont ajoutées.
     """
-    for id_dep in liste_id_train_depart:
+    for id_dep in tqdm(liste_id_train_depart, "Contrainte assurant la succession des tâches entre les chantiers de REC et FOR"):
         for id_arr in dict_correspondances[id_dep]:
             model.addConstr(
                 15*t_dep[(1, id_dep)] >= 15 *
@@ -1081,7 +1081,7 @@ def contraintes_nombre_voies(
             model.addGenConstrAnd(is_present[Chantiers.DEP][(id_train, t)], [after_lower_bound[Chantiers.DEP][(
                 id_train, t)], before_upper_bound[Chantiers.DEP][(id_train, t)]], "andconstr_DEP")
 
-    for t in tqdm(range(tempsMin, tempsMax + 1)):
+    for t in tqdm(range(tempsMin, tempsMax + 1), "Contrainte relative au nombre de voies des chantiers"):
         model.addConstr(
             grb.quicksum([is_present[Chantiers.REC][(id_train, t)]
                          for id_train in liste_id_train_arrivee])

@@ -225,7 +225,7 @@ def convert_hour_to_minutes(hour_str: str) -> int | None:
         return None  # Si le format est incorrect
 
 
-def init_t_a(df_sillons_arr: pd.DataFrame, print_bool: bool = True) -> dict:
+def init_t_a(df_sillons_arr: pd.DataFrame, print_bool: bool = False) -> dict:
     """
     Crée un dictionnaire t_a contenant les minutes écoulées depuis une date de
     référence pour chaque train d'arrivée.
@@ -262,14 +262,14 @@ def init_t_a(df_sillons_arr: pd.DataFrame, print_bool: bool = True) -> dict:
             train_id_unique = f"{train_id}_{date_arr.strftime('%d')}"
 
             t_a[train_id_unique] = minutes_since_ref
-            if print_bool:
+            '''if print_bool:
                 print(
                     f"Train {train_id_unique} : {Colonnes.SILLON_JARR} = {date_arr.date()}, minutes écoulées = {minutes_since_ref}"
-                )
+                )'''
     return t_a
 
 
-def init_t_d(df_sillons_dep: pd.DataFrame, print_bool: bool = True) -> dict:
+def init_t_d(df_sillons_dep: pd.DataFrame, print_bool: bool = False) -> dict:
     """
     Crée un dictionnaire t_d contenant les minutes écoulées depuis une date de
     référence pour chaque train de départ.
@@ -308,10 +308,10 @@ def init_t_d(df_sillons_dep: pd.DataFrame, print_bool: bool = True) -> dict:
 
             t_d[train_id_unique] = minutes_since_ref
 
-            if print_bool:
+            '''if print_bool:
                 print(
                     f"Train {train_id_unique} : {Colonnes.SILLON_JDEP} = {date_dep.date()}, minutes écoulées = {minutes_since_ref}"
-                )
+                )'''
     return t_d
 
 
@@ -645,7 +645,7 @@ def base_time(id_file: int) -> pd.Timestamp:
     """
     if id_file == 0:
         return pd.Timestamp("2023-05-01 00:00")
-    elif id_file == 1:
+    else:
         return pd.Timestamp("2022-08-08 00:00")
 
 

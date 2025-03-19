@@ -1162,7 +1162,7 @@ def init_objectif(
     tempsMax: int,
 ) -> bool:
     max_FOR = model.addVar(vtype=grb.GRB.INTEGER, lb=0, name=f"max_FOR")
-    for t in range(tempsMin, tempsMax):
+    for t in range(tempsMin, tempsMax+1):
         model.addConstr(max_FOR >= grb.quicksum(
             is_present[Chantiers.FOR][(id_train, t)] for id_train in liste_id_train_depart))
     model.setObjective(max_FOR, grb.GRB.MINIMIZE)

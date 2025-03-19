@@ -1046,6 +1046,49 @@ def contraintes_nombre_voies(
     tempsMax: int,
     tempsMin: int = 0,
 ) -> bool:
+    """
+    Ajoute des contraintes limitant le nombre de trains présents sur un même chantier à tout instant.
+
+    Paramètres :
+    ------------
+    model : grb.Model
+        Modèle Gurobi pour ajouter les contraintes.
+
+    t_arr : dict
+        Temps de début des tâches d'arrivée.
+
+    t_dep : dict
+        Temps de début des tâches de départ'.
+
+    t_a : dict
+        Temps d'arrivée des trains en gare.
+
+    t_d : dict
+        Temps de départ des trains.
+
+    liste_id_train_arrivee : list
+        Identifiants des trains d'arrivée'.
+
+    liste_id_train_depart : list
+        Identifiants des trains de départ.
+
+    limites_voies : dict
+        Nombre de voies utilisables par chantier.
+
+    is_present : dict
+        Présence ou non du train id_train sur un chantier
+
+    tempsMin : int
+        Heure d'arrivée du premier train (permet de réduire le nombre de variables à créer)
+
+    tempsMax : int
+        Heure de départ du dernier train (permet de réduire le nombre de variables à créer)
+
+    Retourne :
+    ----------
+    bool
+        True si les contraintes sont ajoutées.
+    """
 
     Mbig = 1000000
     eps = 0.1

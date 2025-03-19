@@ -118,10 +118,12 @@ def init_model(
     """
     model = grb.Model("SNCF JALON 1")
 
-    t_arr, t_dep = init_variables(
+    t_arr, t_dep, is_present = init_variables(
         model,
         liste_id_train_arrivee,
         liste_id_train_depart,
+        tempsMin,
+        tempsMax,
     )
 
     init_contraintes(
@@ -136,8 +138,17 @@ def init_model(
         file,
         id_file,
         limites_voies,
+        is_present,
         tempsMax,
         tempsMin,
+    )
+
+    init_objectif(
+        model,
+        is_present,
+        liste_id_train_depart,
+        tempsMin,
+        tempsMax,
     )
 
     # Choix d'un paramétrage d'affichage
@@ -145,13 +156,15 @@ def init_model(
     # Mise à jour du modèle
     model.update()
 
-    return model, t_arr, t_dep
+    return model, t_arr, t_dep, is_present
 
 
 def init_variables(
     m: grb.Model,
     liste_id_train_arrivee: list,
     liste_id_train_depart: list,
+    tempsMin: int,
+    tempsMax: int,
 ) -> tuple[dict, dict]:
     """
     Initialise les variables de début des tâches pour les trains.
@@ -173,8 +186,10 @@ def init_variables(
     """
     t_arr = variables_debut_tache_arrive(m, liste_id_train_arrivee)
     t_dep = variables_debut_tache_depart(m, liste_id_train_depart)
+    is_present = variable_is_present(
+        m, liste_id_train_arrivee, liste_id_train_depart, tempsMin, tempsMax)
 
-    return t_arr, t_dep
+    return t_arr, t_dep, is_present
 
 
 def variables_debut_tache_arrive(
@@ -231,6 +246,45 @@ def variables_debut_tache_depart(
     return t_dep
 
 
+def variable_is_present(
+    model: grb.Model,
+    liste_id_train_arrivee: list,
+    liste_id_train_depart: list,
+    tempsMin: int,
+    tempsMax: int,
+) -> dict:
+    """
+    Initialise les variables de présence des trains sur les différents chantiers.
+
+    Paramètres :
+    -----------
+    model : grb.Model
+        Modèle d'optimisation Gurobi.
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+    tempsMin : int
+        Temps d'arrivée du premier train.
+    tempsMax : int
+        Temps de départ du dernier train.
+
+    Retourne :
+    ---------
+    dict
+        Variables de présence des trains sur les chantiers à un instant t, indexées par (chantier, train, temps).
+    """
+    is_present = {
+        Chantiers.REC: {(id_train, t): model.addVar(vtype=grb.GRB.BINARY, name=f"is_present_REC_{id_train}_{t}")
+                        for id_train in liste_id_train_arrivee for t in range(tempsMin, tempsMax+1)},
+        Chantiers.FOR: {(id_train, t): model.addVar(vtype=grb.GRB.BINARY, name=f"is_present_FOR_{id_train}_{t}")
+                        for id_train in liste_id_train_depart for t in range(tempsMin, tempsMax+1)},
+        Chantiers.DEP: {(id_train, t): model.addVar(vtype=grb.GRB.BINARY, name=f"is_present_DEP_{id_train}_{t}")
+                        for id_train in liste_id_train_depart for t in range(tempsMin, tempsMax+1)}
+    }
+    return is_present
+
+
 def init_contraintes(
     model: grb.Model,
     t_arr: dict,
@@ -243,6 +297,7 @@ def init_contraintes(
     file: str,
     id_file: int,
     limites_voies: dict,
+    is_present: dict,
     tempsMax: int,
     tempsMin: int,
 ) -> bool:
@@ -328,11 +383,14 @@ def init_contraintes(
         model,
         t_arr,
         t_dep,
+        t_a,
+        t_d,
         liste_id_train_arrivee,
         liste_id_train_depart,
         limites_voies,
+        is_present,
         tempsMax,
-        tempsMin
+        tempsMin,
     )
 
     return True
@@ -979,9 +1037,12 @@ def contraintes_nombre_voies(
     model: grb.Model,
     t_arr: dict,
     t_dep: dict,
+    t_a: dict,
+    t_d: dict,
     liste_id_train_arrivee: list,
     liste_id_train_depart: list,
     limites_voies: dict,
+    is_present: dict,
     tempsMax: int,
     tempsMin: int = 0,
 ) -> bool:
@@ -1008,33 +1069,24 @@ def contraintes_nombre_voies(
                         for id_train in liste_id_train_depart for t in range(tempsMin, tempsMax+1)}
     }
 
-    is_present = {
-        Chantiers.REC: {(id_train, t): model.addVar(vtype=grb.GRB.BINARY, name=f"is_present_REC_{id_train}_{t}")
-                        for id_train in liste_id_train_arrivee for t in range(tempsMin, tempsMax+1)},
-        Chantiers.FOR: {(id_train, t): model.addVar(vtype=grb.GRB.BINARY, name=f"is_present_FOR_{id_train}_{t}")
-                        for id_train in liste_id_train_depart for t in range(tempsMin, tempsMax+1)},
-        Chantiers.DEP: {(id_train, t): model.addVar(vtype=grb.GRB.BINARY, name=f"is_present_DEP_{id_train}_{t}")
-                        for id_train in liste_id_train_depart for t in range(tempsMin, tempsMax+1)}
-    }
-
     for id_train in liste_id_train_arrivee:
         for t in range(tempsMin, tempsMax+1):  # Parcours du temps
             # Si le train est présent, t_start <= t <= t_end
             # is_present => t_arr[(1, id_train)] <= t
             model.addConstr(
-                t >= t_arr[(1, id_train)] - Mbig * (1 -
-                                                    after_lower_bound[Chantiers.REC][(id_train, t)]),
+                15*t >= t_a[id_train] - Mbig * (1 -
+                                                after_lower_bound[Chantiers.REC][(id_train, t)]),
                 name=f"after_lower_bound_REC_{id_train}_{t}"
             )
-            model.addConstr(t <= t_arr[(1, id_train)] - eps + Mbig *
+            model.addConstr(15*t <= t_a[id_train] - eps + Mbig *
                             after_lower_bound[Chantiers.REC][(id_train, t)], name="bigM_constr_REC_after_lb")
 
             model.addConstr(
-                t <= t_arr[(3, id_train)] + Taches.T_ARR[3] + Mbig *
+                15*t <= 15*t_arr[(3, id_train)] + Taches.T_ARR[3] + Mbig *
                 (1 - before_upper_bound[Chantiers.REC][(id_train, t)]),
                 name=f"before_upper_bound_REC_{id_train}_{t}"
             )
-            model.addConstr(t >= t_arr[(3, id_train)] + Taches.T_ARR[3] + eps - Mbig *
+            model.addConstr(15*t >= 15*t_arr[(3, id_train)] + Taches.T_ARR[3] + eps - Mbig *
                             before_upper_bound[Chantiers.REC][(id_train, t)], name="bigM_constr_REC_before_ub")
 
             model.addGenConstrAnd(is_present[Chantiers.REC][(id_train, t)], [after_lower_bound[Chantiers.REC][(
@@ -1044,38 +1096,38 @@ def contraintes_nombre_voies(
         for t in range(tempsMin, tempsMax+1):  # Parcours du temps
             # Si le train est présent, t_start <= t <= t_end
             model.addConstr(
-                t >= t_dep[(1, id_train)] - Mbig * (1 -
-                                                    after_lower_bound[Chantiers.FOR][(id_train, t)]),
+                15*t >= 15*t_dep[(1, id_train)] - Mbig * (1 -
+                                                          after_lower_bound[Chantiers.FOR][(id_train, t)]),
                 name=f"after_lower_bound_FOR_{id_train}_{t}"
             )
-            model.addConstr(t <= t_dep[(1, id_train)] - eps + Mbig *
+            model.addConstr(15*t <= 15*t_dep[(1, id_train)] - eps + Mbig *
                             after_lower_bound[Chantiers.FOR][(id_train, t)], name="bigM_constr_FOR_after_lb")
 
             model.addConstr(
-                t <= t_dep[(3, id_train)] + Taches.T_DEP[3] + Mbig *
+                15*t <= 15*t_dep[(3, id_train)] + Taches.T_DEP[3] + Mbig *
                 (1 - before_upper_bound[Chantiers.FOR][(id_train, t)]),
                 name=f"before_upper_bound_FOR_{id_train}_{t}"
             )
-            model.addConstr(t >= t_dep[(3, id_train)] + Taches.T_DEP[3] + eps - Mbig *
+            model.addConstr(15*t >= 15*t_dep[(3, id_train)] + Taches.T_DEP[3] + eps - Mbig *
                             before_upper_bound[Chantiers.FOR][(id_train, t)], name="bigM_constr_FOR_before_ub")
 
             model.addGenConstrAnd(is_present[Chantiers.FOR][(id_train, t)], [after_lower_bound[Chantiers.FOR][(
                 id_train, t)], before_upper_bound[Chantiers.FOR][(id_train, t)]], "andconstr_FOR")
 
             model.addConstr(
-                t >= t_dep[(4, id_train)] - Mbig * (1 -
-                                                    after_lower_bound[Chantiers.DEP][(id_train, t)]),
+                15*t >= 15*t_dep[(3, id_train)] + Taches.T_DEP[3] + eps - Mbig * (1 -
+                                                                                  after_lower_bound[Chantiers.DEP][(id_train, t)]),
                 name=f"after_lower_bound_DEP_{id_train}_{t}"
             )
-            model.addConstr(t <= t_dep[(4, id_train)] - eps + Mbig *
+            model.addConstr(15*t <= 15*t_dep[(3, id_train)] + Taches.T_DEP[3] + Mbig *
                             after_lower_bound[Chantiers.DEP][(id_train, t)], name="bigM_constr_DEP_after_lb")
 
             model.addConstr(
-                t <= t_dep[(4, id_train)] + Taches.T_DEP[4] + Mbig *
+                15*t <= t_d[id_train] + Mbig *
                 (1 - before_upper_bound[Chantiers.DEP][(id_train, t)]),
                 name=f"before_upper_bound_DEP_{id_train}_{t}"
             )
-            model.addConstr(t >= t_dep[(4, id_train)] + Taches.T_DEP[4] + eps - Mbig *
+            model.addConstr(15*t >= t_d[id_train] + eps - Mbig *
                             before_upper_bound[Chantiers.DEP][(id_train, t)], name="bigM_constr_DEP_before_ub")
 
             model.addGenConstrAnd(is_present[Chantiers.DEP][(id_train, t)], [after_lower_bound[Chantiers.DEP][(
@@ -1098,5 +1150,21 @@ def contraintes_nombre_voies(
                          for id_train in liste_id_train_depart])
             <= limites_voies[Chantiers.DEP]
         )
+
+    return True
+
+
+def init_objectif(
+    model: grb.Model,
+    is_present: dict,
+    liste_id_train_depart: dict,
+    tempsMin: int,
+    tempsMax: int,
+) -> bool:
+    max_FOR = model.addVar(vtype=grb.GRB.INTEGER, lb=0, name=f"max_FOR")
+    for t in range(tempsMin, tempsMax):
+        model.addConstr(max_FOR >= grb.quicksum(
+            is_present[Chantiers.FOR][(id_train, t)] for id_train in liste_id_train_depart))
+    model.setObjective(max_FOR, grb.GRB.MINIMIZE)
 
     return True

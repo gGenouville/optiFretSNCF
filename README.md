@@ -8,7 +8,7 @@ Ce projet utilise le solveur d'optimisation Gurobi optimiser la planification de
 
 Le projet est organisé comme suit :
 
-    /Projet_Gurobi
+    /Jalon 2
     │
     ├── /Code
     │   ├── /modules

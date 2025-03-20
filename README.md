@@ -13,11 +13,12 @@ Le projet est organisé comme suit :
     ├── /Code
     │   ├── /modules
     |   |   ├── init.py # Permet de transformer le répertoire en package Python
-    │   │   ├── utils1.py        # Fonctions utilitaires pour la préparation des données
-    │   │   └── model1.py        # Fonctions liées à la création et à la gestion du modèle Gurobi
+    │   │   ├── utils2.py               # Fonctions utilitaires pour la préparation et le traitement des données
+    │   │   ├── modele2.py              # Fonctions liées à la création et à la gestion du modèle Gurobi
+    │   │   └── visualisation2.py       # Fonctions liées à la visualisation des données
     │   │
     │   └── /notebooks
-    │       └── Code_jalon_1.ipynb  # Notebook Jupyter pour exécuter le modèle et visualiser les résultats
+    │       └── Code_jalon_2.ipynb  # Notebook Jupyter pour exécuter le modèle et visualiser les résultats
     │
     └── README.md                # Ce fichier
 

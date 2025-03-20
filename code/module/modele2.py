@@ -8,6 +8,16 @@ contraintes temporelles et de succession.
 Fonctions :
 -----------
 init_model : Initialise le modèle Gurobi avec les contraintes de base.
+init_variables: Initialise les variables de décision.
+variables_debut_tache_arrive : Initialise les variables 
+    de début des tâches pour les trains d'arrivée.
+variables_debut_tache_depart : Initialise les variables
+    de début des tâches pour les trains de départ.
+variable_is_present : Initialise les variables de 
+    présence des trains sur les différents chantiers.
+variable_premier_wagon : Initialise les variables de temps du début de la première tâche
+    de débranchement sur les trains d'arrivée contenant des wagons du train de départ.
+init_objectif : Crée la variable à minimiser de la fonction object ainsi que ses contraintes.
 """
 
 import gurobipy as grb
@@ -113,7 +123,8 @@ def init_variables(
     temps_max: int,
 ) -> tuple[dict, dict, dict, dict]:
     """
-    Initialise les variables de début des tâches pour les trains.
+    Initialise les variables de début des tâches pour les trains, 
+    de présence sur un chantier de premier débranchement de wagon.
 
     Paramètres :
     -----------

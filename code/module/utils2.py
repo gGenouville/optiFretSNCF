@@ -32,6 +32,7 @@ creation_limites_chantiers : Gère les plages d'indisponibilité des chantiers.
 base_time : Définit l'origine des temps pour les calculs.
 """
 
+import datetime
 import re
 from itertools import chain
 
@@ -432,7 +433,7 @@ def dernier_depart(df_sillons_dep, base_time_value):
 
 def premiere_arrivee(df_sillons_arr, base_time_value):
     """
-    Calcule le temps en minutes écoulé depuis une date de 
+    Calcule le temps en minutes écoulé depuis une date de
     référence jusqu'à la première arrivée dans le DataFrame.
 
     Paramètres :
@@ -696,3 +697,134 @@ def init_limites_voies(file: str):
         Chantiers.DEP: int(df_chantiers[Colonnes.NOMBRE_VOIES].astype(str)[2]),
     }
     return limites_chantiers_voies
+
+
+def ecriture_donnees_sortie(
+    t_arr, t_dep, occupation_REC, occupation_FOR, occupation_DEP, x_date
+):
+    """
+    Traite les données pour les mettre dans une feuille de calcul de sortie au format standard.
+
+    Paramètres :
+    -----------
+    t_arr : dict
+        Variables de début des tâches d'arrivée. 
+    t_dep: dict
+        Variables de début des tâches de départ.
+    occupation_REC : list
+        Occupation des voies du chantier de réception en fonction du temps.
+    occupation_REC : list
+        Occupation des voies du chantier de formation en fonction du temps.
+    occupation_DEP : list
+        Occupation des voies du chantier de départ en fonction du temps.
+    x_date : list
+        Horodatage des points des listes précédentes.
+
+    Retourne :
+    ---------
+    bool
+        True si les données sont écrites.
+    """
+    # Création des données de sortie
+    xl = (
+        [
+            {
+                "Id tâche": "DEB_"
+                + n_arr
+                + "#"
+                + (base_time(1) + datetime.timedelta(minutes=var_arr.X)).strftime(
+                    "%d/%m/%Y"
+                )
+                + "#A",
+                "Type de tâche": "DEB",
+                "Jour": (base_time(1) + datetime.timedelta(minutes=var_arr.X)).strftime(
+                    "%d/%m/%Y"
+                ),
+                "Heure de début": (
+                    base_time(1) + datetime.timedelta(minutes=var_arr.X)
+                ).strftime("%H:%M"),
+                "Durée": 15,
+                "Sillon": n_arr
+                + "#"
+                + (base_time(1) + datetime.timedelta(minutes=var_arr.X)).strftime(
+                    "%d/%m/%Y"
+                )
+                + "#A",
+            }
+            for (m_arr, n_arr), var_arr in t_arr.items()
+            if m_arr == 3
+        ]
+        + [
+            {
+                "Id tâche": "FOR_"
+                + n_dep
+                + "#"
+                + (base_time(1) + datetime.timedelta(minutes=var_dep.X)).strftime(
+                    "%d/%m/%Y"
+                )
+                + "#D",
+                "Type de tâche": "FOR",
+                "Jour": (base_time(1) + datetime.timedelta(minutes=var_dep.X)).strftime(
+                    "%d/%m/%Y"
+                ),
+                "Heure de début": (
+                    base_time(1) + datetime.timedelta(minutes=var_dep.X)
+                ).strftime("%H:%M"),
+                "Durée": 15,
+                "Sillon": n_dep
+                + "#"
+                + (base_time(1) + datetime.timedelta(minutes=var_dep.X)).strftime(
+                    "%d/%m/%Y"
+                )
+                + "#D",
+            }
+            for (m_dep, n_dep), var_dep in t_dep.items()
+            if m_dep == 1
+        ]
+        + [
+            {
+                "Id tâche": "DEG_"
+                + n_dep
+                + "#"
+                + (base_time(1) + datetime.timedelta(minutes=var_dep.X)).strftime(
+                    "%d/%m/%Y"
+                )
+                + "#D",
+                "Type de tâche": "DEG",
+                "Jour": (base_time(1) + datetime.timedelta(minutes=var_dep.X)).strftime(
+                    "%d/%m/%Y"
+                ),
+                "Heure de début": (
+                    base_time(1) + datetime.timedelta(minutes=var_dep.X)
+                ).strftime("%H:%M"),
+                "Durée": 20,
+                "Sillon": n_dep
+                + "#"
+                + (base_time(1) + datetime.timedelta(minutes=var_dep.X)).strftime(
+                    "%d/%m/%Y"
+                )
+                + "#D",
+            }
+            for (m_dep, n_dep), var_dep in t_dep.items()
+            if m_dep == 3
+        ]
+    )
+
+    # Versement des données de sortie vers une trame de données
+    df_xl = pd.DataFrame(xl)
+
+    # Création des données d'occupation des voies de chantier
+    xl2 = {
+        "Horodatage": x_date,
+        "REC": occupation_REC,
+        "FOR": occupation_FOR,
+        "DEP": occupation_DEP,
+    }
+    # Versement des données d'occupation vers une trame de données
+    df_xl2 = pd.DataFrame(xl2)
+
+    # Versement des trames vers la feuilles de calcul
+    with pd.ExcelWriter("sortie_jalon2.xlsx", engine="openpyxl") as writer:
+        df_xl.to_excel(writer, sheet_name="Taches machine", index=False)
+        df_xl2.to_excel(writer, sheet_name="Occupation voie chantier", index=False)
+    return True

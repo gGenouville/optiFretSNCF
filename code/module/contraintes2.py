@@ -9,8 +9,10 @@ Fonctions :
 init_contraintes : Initialise les contraintes du modèle d'optimisation.
 contraintes_temporalite : Ajoute les contraintes de temporalité des tâches.
 contraintes_machines : Ajoute les contraintes d'exclusion pour les machines.
-contraintes_ouvertures_machines : Ajoute les contraintes pour respecter les horaires d'utilisation des machines.
-contraintes_ouvertures_chantiers : Ajoute les contraintes pour respecter les horaires d'ouverture des chantiers.
+contraintes_ouvertures_machines : Ajoute les contraintes 
+	pour respecter les horaires d'utilisation des machines.
+contraintes_ouvertures_chantiers : Ajoute les contraintes
+	pour respecter les horaires d'ouverture des chantiers.
 contraintes_succession : Ajoute des contraintes de succession entre les tâches
     d'arrivée et de départ des trains, en tenant compte des correspondances de wagons.
 contraintes_nombre_voies : Ajoute des contraintes limitant

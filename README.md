@@ -15,6 +15,7 @@ Le projet est organisé comme suit :
     |   |   ├── init.py # Permet de transformer le répertoire en package Python
     │   │   ├── utils2.py               # Fonctions utilitaires pour la préparation et le traitement des données
     │   │   ├── modele2.py              # Fonctions liées à la création et à la gestion du modèle Gurobi
+    │   │   ├── contraintes2.py         # Fonctions liées à la création des contraintes du modèle Gurobi
     │   │   └── visualisation2.py       # Fonctions liées à la visualisation des données
     │   │
     │   └── /notebooks
@@ -32,9 +33,11 @@ Ce répertoire contient le code Python qui permet d'initialiser le modèle d'opt
   
 - `utils2.py` : Ce fichier contient des fonctions utilitaires utilisées pour préparer et traiter les données avant de les passer au modèle Gurobi. Par exemple, il peut inclure des fonctions pour la gestion des horaires, des machines, ou des contraintes spécifiques aux trains.
   
-- `model2.py` : Ce fichier contient les fonctions principales liées à la création du modèle Gurobi, l'ajout des variables de décision, des contraintes et la configuration du solveur. Les modèles sont définis pour résoudre des problèmes d'optimisation en utilisant les données traitées dans `utils2.py`.
+- `modele2.py` : Ce fichier contient les fonctions principales liées à la création du modèle Gurobi, l'ajout des variables de décision, des contraintes et la configuration du solveur. Les modèles sont définis pour résoudre des problèmes d'optimisation en utilisant les données traitées dans `utils2.py`.
   
-- `model2.py` : Ce fichier contient les fonctions permettant de visualiser les solutions obtenues après optimisation du problème à l'aide des pics d'occupation et de diagramme de Gantt.
+- `contraintes2.py` : Ce fichier contient les fonctions principales liées à la création des contraintes du modèle Gurobi, il est exclusivement utilisé par le module `modele2.py`.
+  
+- `visualisation2.py` : Ce fichier contient les fonctions permettant de visualiser les solutions obtenues après optimisation du problème à l'aide des pics d'occupation et de diagramme de Gantt.
 
 ### 2. `/Code/notebooks`
 

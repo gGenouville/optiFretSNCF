@@ -1417,7 +1417,6 @@ def contraintes_premier_wagon(
     bool
         True si les contraintes sont ajoutées.
     """
-    print(t_arr.keys())
 
     for id_train_depart in tqdm(
         liste_id_train_depart,

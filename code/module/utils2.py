@@ -14,6 +14,7 @@ Machines : Identifiants des machines utilisées dans les opérations.
 Chantiers : Identifiants des chantiers dans les opérations.
 Feuilles : Noms des feuilles de calcul Excel.
 Colonnes : Noms des colonnes dans les tables de données.
+Taches : Constantes et attributs des tâches à effectuer sur les trains.
 
 Fonctions :
 -----------
@@ -22,7 +23,8 @@ convert_hour_to_minutes : Convertit une heure en minutes depuis minuit.
 init_t_a : Crée un dictionnaire des temps d'arrivée en minutes.
 init_t_d : Crée un dictionnaire des temps de départ en minutes.
 init_dict_correspondance : Crée un dictionnaire des correspondances.
-dernier_depart : Calcule le temps écoulé jusqu'au dernier départ.
+dernier_depart : Calcule le temps écoulé depuis une date de référence jusqu'au dernier départ.
+premiere_arrivee : Calcule le temps écoulé depuis une date de référence jusqu'à la première arrivée.
 convertir_en_minutes : Convertit les plages d'indisponibilité en minutes.
 traitement_doublons : Supprime les doublons consécutifs dans une liste.
 creation_limites_machines : Gère les plages d'indisponibilité des machines.
@@ -30,9 +32,10 @@ creation_limites_chantiers : Gère les plages d'indisponibilité des chantiers.
 base_time : Définit l'origine des temps pour les calculs.
 """
 
-from itertools import chain
-import pandas as pd
 import re
+from itertools import chain
+
+import pandas as pd
 
 
 class Constantes:
@@ -168,6 +171,43 @@ class Colonnes:
     INDISPONIBILITE_MINUTES = "Indisponibilites etendues en minutes"
 
 
+class Taches:
+    """
+    Constantes des tâches à effectuer sur les trains et leur temporalité.
+
+    Attributs :
+    ----------
+    TACHES_ARRIVEE : list[int]
+        Tâches à effectuer à l'arrivée d'un train.
+    TACHES_DEPART : list[int]
+        Tâches à effectuer au départ d'un train.
+    TACHES_ARR_MACHINE : list[int]
+        Tâches d'arrivée nécessitant une machine.
+    TACHES_DEP_MACHINE : list[int]
+        Tâches de départ nécessitant une machine.
+    T_ARR : dict[int, int]
+        Durée des tâches d'arrivée (en minutes).
+    T_DEP : dict[int, int]
+        Durée des tâches de départ (en minutes).
+    LIMITES : np.ndarray
+        Horaires limites du chantier et des machines (en minutes).
+    """
+
+    # définition des taches
+    TACHES_ARRIVEE = [1, 2, 3]
+    TACHES_DEPART = [1, 2, 3, 4]
+
+    # Définition des numéros des tâches machines
+    TACHES_ARR_MACHINE = [3]
+    TACHES_DEP_MACHINE = [1, 3]
+
+    # Durée des tâches sur les trains d'arrivée
+    T_ARR = {1: 15, 2: 45, 3: 15}
+
+    # Durée des tâches sur les trains de départ
+    T_DEP = {1: 15, 2: 150, 3: 15, 4: 20}
+
+
 def read_sillon(file: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Lit les feuilles 'Sillons arrivée' et 'Sillons départ' d'un fichier Excel.
@@ -187,9 +227,7 @@ def read_sillon(file: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     df_sillons_arr = pd.read_excel(
         file, sheet_name=Feuilles.SILLONS_ARRIVEE
     )  # Arrivées
-    df_sillons_dep = pd.read_excel(
-        file, sheet_name=Feuilles.SILLONS_DEPART
-    )  # Départs
+    df_sillons_dep = pd.read_excel(file, sheet_name=Feuilles.SILLONS_DEPART)  # Départs
 
     # Conversion des dates en datetime64
     df_sillons_arr[Colonnes.SILLON_JARR] = pd.to_datetime(
@@ -234,8 +272,8 @@ def init_t_a(df_sillons_arr: pd.DataFrame, id_file: int) -> dict:
     -----------
     df_sillons_arr : pd.DataFrame
         DataFrame contenant les données des sillons d'arrivée.
-    print_bool : bool, optionnel
-        Si True, affiche les informations de chaque train traité.
+    id_file : int
+        Identifiant du fichier pour déterminer la date de référence.
 
     Retourne :
     ----------
@@ -254,9 +292,7 @@ def init_t_a(df_sillons_arr: pd.DataFrame, id_file: int) -> dict:
         if pd.notna(date_arr) and heure_arr is not None:
             # Nombre de jours depuis le 08/08
             days_since_ref = (date_arr - Constantes.BASE_TIME).days
-            minutes_since_ref = (
-                days_since_ref * 1440
-            ) + heure_arr  # Ajout des minutes
+            minutes_since_ref = (days_since_ref * 1440) + heure_arr  # Ajout des minutes
 
             # Création d'un ID unique : Train_ID_Date, car certains trains portant le même ID passent sur des jours différents
             train_id_unique = f"{train_id}_{date_arr.strftime('%d')}"
@@ -264,8 +300,7 @@ def init_t_a(df_sillons_arr: pd.DataFrame, id_file: int) -> dict:
             t_a[train_id_unique] = minutes_since_ref
         # Pour résoudre manuellement le problème sur le fichier excel de la mini_instance
         if id_file == 0:
-            t_a = {'1': (24+9)*60, '2': (24+13)
-                   * 60, '3': (24+16)*60}
+            t_a = {"1": (24 + 9) * 60, "2": (24 + 13) * 60, "3": (24 + 16) * 60}
     return t_a
 
 
@@ -278,8 +313,8 @@ def init_t_d(df_sillons_dep: pd.DataFrame, id_file: int) -> dict:
     -----------
     df_sillons_dep : pd.DataFrame
         DataFrame contenant les données des sillons de départ.
-    print_bool : bool, optionnel
-        Si True, affiche les informations de chaque train traité.
+    id_file : int
+        Identifiant du fichier pour déterminer la date de référence.
 
     Retourne :
     ----------
@@ -299,9 +334,7 @@ def init_t_d(df_sillons_dep: pd.DataFrame, id_file: int) -> dict:
         if pd.notna(date_dep) and heure_dep is not None:
             # Nombre de jours depuis le 08/08
             days_since_ref = (date_dep - Constantes.BASE_TIME).days
-            minutes_since_ref = (
-                days_since_ref * 1440
-            ) + heure_dep  # Ajout des minutes
+            minutes_since_ref = (days_since_ref * 1440) + heure_dep  # Ajout des minutes
 
             # Création d'un ID unique : Train_ID_Date
             train_id_unique = f"{train_id}_{date_dep.strftime('%d')}"
@@ -309,8 +342,7 @@ def init_t_d(df_sillons_dep: pd.DataFrame, id_file: int) -> dict:
             t_d[train_id_unique] = minutes_since_ref
         # Pour résoudre manuellement le problème sur le fichier excel de la mini_instance
         if id_file == 0:
-            t_d = {'4': (24+21)*60, '5': (24+21)
-                   * 60, '6': (24+21)*60+30}
+            t_d = {"4": (24 + 21) * 60, "5": (24 + 21) * 60, "6": (24 + 21) * 60 + 30}
     return t_d
 
 
@@ -323,6 +355,8 @@ def init_dict_correspondance(df_correspondance: pd.DataFrame, id_file: int) -> d
     -----------
     df_correspondance : pd.DataFrame
         DataFrame contenant les informations de correspondance entre les trains.
+    id_file : int
+        Identifiant du fichier pour déterminer la date de référence.
 
     Retourne :
     ----------
@@ -358,7 +392,7 @@ def init_dict_correspondance(df_correspondance: pd.DataFrame, id_file: int) -> d
         d[departure_train_id].append(arrival_train_id)
 
     if id_file == 0:
-        d = {'4': ['2', '3'], '5': ['1', '2'], '6': ['1', '2', '3']}
+        d = {"4": ["2", "3"], "5": ["1", "2"], "6": ["1", "2", "3"]}
     return d
 
 
@@ -382,9 +416,7 @@ def dernier_depart(df_sillons_dep, base_time_value):
     """
     # Convertir les dates et heures en datetime
     df_sillons_dep["Datetime"] = pd.to_datetime(
-        df_sillons_dep["JDEP"].astype(str)
-        + " "
-        + df_sillons_dep["HDEP"].astype(str)
+        df_sillons_dep["JDEP"].astype(str) + " " + df_sillons_dep["HDEP"].astype(str)
     )
 
     # Trouver l'heure de départ la plus tardive
@@ -400,13 +432,13 @@ def dernier_depart(df_sillons_dep, base_time_value):
 
 def premiere_arrivee(df_sillons_arr, base_time_value):
     """
-    Calcule le temps en minutes écoulé depuis une date de référence jusqu'au
-    dernier départ dans le DataFrame.
+    Calcule le temps en minutes écoulé depuis une date de 
+    référence jusqu'à la première arrivée dans le DataFrame.
 
     Paramètres :
     -----------
-    df_sillons_dep : pd.DataFrame
-        DataFrame contenant les données des sillons de départ.
+    df_sillons_arr : pd.DataFrame
+        DataFrame contenant les données des sillons d'arrivée.
     base_time_value : pd.Timestamp
         Date de référence pour le calcul des minutes écoulées.
 
@@ -418,9 +450,7 @@ def premiere_arrivee(df_sillons_arr, base_time_value):
     """
     # Convertir les dates et heures en datetime
     df_sillons_arr["Datetime"] = pd.to_datetime(
-        df_sillons_arr["JDEP"].astype(str)
-        + " "
-        + df_sillons_arr["HDEP"].astype(str)
+        df_sillons_arr["JDEP"].astype(str) + " " + df_sillons_arr["HDEP"].astype(str)
     )
 
     # Trouver l'heure de départ la plus tardive
@@ -497,9 +527,7 @@ def convertir_en_minutes(
         plages_etendues.extend(nouvelles_plages)
 
         # Vérifier si la dernière plage dépasse l'heure du dernier train
-        if nouvelles_plages[-1][1] > dernier_depart(
-            df_sillons_dep, base_time(id_file)
-        ):
+        if nouvelles_plages[-1][1] > dernier_depart(df_sillons_dep, base_time(id_file)):
             break
 
         semaine += 1  # Passer à la semaine suivante
@@ -556,30 +584,26 @@ def creation_limites_machines(file: str, id_file: int) -> dict:
 
     df_machines = pd.read_excel(file, sheet_name=Feuilles.MACHINES)
 
-    Indisponibilités_machines = df_machines[
-        Colonnes.INDISPONIBILITE_MINUTES
-    ] = (
+    indisponibilites_machines = df_machines[Colonnes.INDISPONIBILITE_MINUTES] = (
         df_machines[Colonnes.INDISPONIBILITE]
         .astype(str)
         .apply(lambda x: convertir_en_minutes(x, file, id_file))
     )
 
-    listes_plates_machines = Indisponibilités_machines.apply(
-        lambda x: list(chain(*x))
-    )
+    listes_plates_machines = indisponibilites_machines.apply(lambda x: list(chain(*x)))
 
-    Limites_machines = []
+    limites_machines = []
     for liste in listes_plates_machines:
-        Limites_machines.append(liste)
+        limites_machines.append(liste)
 
-    Limites_machines = traitement_doublons(Limites_machines)
-    Limites_machines = {
-        Machines.DEB: Limites_machines[0],
-        Machines.FOR: Limites_machines[1],
-        Machines.DEG: Limites_machines[2],
+    limites_machines = traitement_doublons(limites_machines)
+    limites_machines = {
+        Machines.DEB: limites_machines[0],
+        Machines.FOR: limites_machines[1],
+        Machines.DEG: limites_machines[2],
     }
 
-    return Limites_machines
+    return limites_machines
 
 
 def creation_limites_chantiers(file: str, id_file: int) -> dict:
@@ -603,15 +627,13 @@ def creation_limites_chantiers(file: str, id_file: int) -> dict:
 
     df_chantiers = pd.read_excel(file, sheet_name=Feuilles.CHANTIERS)
 
-    indisponibilités_chantiers = df_chantiers[
-        Colonnes.INDISPONIBILITE_MINUTES
-    ] = (
+    indisponibilites_chantiers = df_chantiers[Colonnes.INDISPONIBILITE_MINUTES] = (
         df_chantiers[Colonnes.INDISPONIBILITE]
         .astype(str)
         .apply(lambda x: convertir_en_minutes(x, file, id_file))
     )
 
-    listes_plates_chantiers = indisponibilités_chantiers.apply(
+    listes_plates_chantiers = indisponibilites_chantiers.apply(
         lambda x: list(chain(*x))
     )
 

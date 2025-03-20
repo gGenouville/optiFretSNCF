@@ -1,343 +1,34 @@
 """
-Module de gestion des opérations sur les trains utilisant Gurobi pour l'optimisation.
+Sous-module de `modele2` dédié à la mise en place des contraintes.
 
-Ce module définit les tâches et contraintes pour la planification des opérations
-sur les trains, incluant les tâches d'arrivée et de départ, ainsi que les
-contraintes temporelles et de succession.
-
-Classes :
----------
-Taches : Constantes et attributs des tâches à effectuer sur les trains.
+Ce module définit les contraintes pour la planification des opérations
+sur les trains.
 
 Fonctions :
 -----------
-init_model : Initialise le modèle Gurobi avec les contraintes de base.
+init_contraintes : Initialise les contraintes du modèle d'optimisation.
+contraintes_temporalite : Ajoute les contraintes de temporalité des tâches.
+contraintes_machines : Ajoute les contraintes d'exclusion pour les machines.
+contraintes_ouvertures_machines : Ajoute les contraintes pour respecter les horaires d'utilisation des machines.
+contraintes_ouvertures_chantiers : Ajoute les contraintes pour respecter les horaires d'ouverture des chantiers.
+contraintes_succession : Ajoute des contraintes de succession entre les tâches
+    d'arrivée et de départ des trains, en tenant compte des correspondances de wagons.
+contraintes_nombre_voies : Ajoute des contraintes limitant
+    le nombre de trains présents sur un même chantier.
+contraintes_premier_wagon : Ajoute les contraintes définissant le
+    temps du premier débranchement de wagon du train de départ.
 """
 
 import gurobipy as grb
-import numpy as np
 from tqdm import tqdm
-from module.utils1 import (
-    creation_limites_machines,
-    creation_limites_chantiers,
-    Machines,
+
+from module.utils2 import (
     Chantiers,
+    Machines,
+    Taches,
+    creation_limites_chantiers,
+    creation_limites_machines,
 )
-
-
-class Taches:
-    """
-    Constantes des tâches à effectuer sur les trains et leur temporalité.
-
-    Attributs :
-    ----------
-    TACHES_ARRIVEE : list[int]
-        Tâches à effectuer à l'arrivée d'un train.
-    TACHES_DEPART : list[int]
-        Tâches à effectuer au départ d'un train.
-    TACHES_ARR_MACHINE : list[int]
-        Tâches d'arrivée nécessitant une machine.
-    TACHES_DEP_MACHINE : list[int]
-        Tâches de départ nécessitant une machine.
-    T_ARR : dict[int, int]
-        Durée des tâches d'arrivée (en minutes).
-    T_DEP : dict[int, int]
-        Durée des tâches de départ (en minutes).
-    LIMITES : np.ndarray
-        Horaires limites du chantier et des machines (en minutes).
-    """
-
-    # définition des taches
-    TACHES_ARRIVEE = [1, 2, 3]
-    TACHES_DEPART = [1, 2, 3, 4]
-
-    # Définition des numéros des tâches machines
-    TACHES_ARR_MACHINE = [3]
-    TACHES_DEP_MACHINE = [1, 3]
-
-    # Durée des tâches sur les trains d'arrivée
-    T_ARR = {1: 15, 2: 45, 3: 15}
-
-    # Durée des tâches sur les trains de départ
-    T_DEP = {1: 15, 2: 150, 3: 15, 4: 20}
-
-    # Horaires limites de la disponibilité du chantier de formation et des machines (en minutes)
-    LIMITES = np.array(
-        [
-            5 * 60,
-            13 * 60,
-            (5 * 24 + 13) * 60,
-            (5 * 24 + 21) * 60,
-            (6 * 24 + 13) * 60,
-            (6 * 24 + 21) * 60,
-            (7 * 24 + 5) * 60,
-            (7 * 24 + 13) * 60,
-        ]
-    )
-
-
-def init_model(
-    liste_id_train_arrivee: list,
-    t_a: dict,
-    liste_id_train_depart: list,
-    t_d: dict,
-    dict_correspondances: dict,
-    file: str,
-    id_file: int,
-    limites_voies: dict,
-    tempsMax: int,
-    tempsMin: int,
-) -> tuple[grb.Model, dict, dict, dict]:
-    """
-    Initialise le modèle d'optimisation avec les variables et contraintes.
-
-    Paramètres :
-    -----------
-    liste_id_train_arrivee : list
-        Identifiants des trains à l'arrivée.
-    t_a : dict
-        Temps d'arrivée à la gare de fret des trains.
-    liste_id_train_depart : list
-        Identifiants des trains au départ.
-    t_d : dict
-        Temps de départ de la gare de fret des trains.
-    dict_correspondances : dict
-        Correspondances entre trains d'arrivée et de départ.
-    file : str
-        Nom du fichier de configuration.
-    id_file : int
-        Identifiant du fichier.
-    limites_voies : dict
-        Nombre de voies utilisables par chantier.
-    tempsMin : int
-        Temps d'arrivée du premier train.
-    tempsMax : int
-        Temps de départ du dernier train.
-
-    Retourne :
-    ---------
-    grb.Model
-        Modèle d'optimisation Gurobi initialisé.
-    tuple
-        Variables du modèle (t_arr, t_dep).
-    """
-    model = grb.Model("SNCF JALON 1")
-
-    t_arr, t_dep, is_present, premier_wagon = init_variables(
-        model,
-        liste_id_train_arrivee,
-        liste_id_train_depart,
-        tempsMin,
-        tempsMax,
-    )
-
-    init_contraintes(
-        model,
-        t_arr,
-        t_a,
-        liste_id_train_arrivee,
-        t_dep,
-        t_d,
-        liste_id_train_depart,
-        dict_correspondances,
-        file,
-        id_file,
-        limites_voies,
-        is_present,
-        premier_wagon,
-        tempsMax,
-        tempsMin,
-    )
-
-    init_objectif(
-        model,
-        is_present,
-        liste_id_train_depart,
-        tempsMin,
-        tempsMax,
-    )
-
-    # Choix d'un paramétrage d'affichage
-    model.params.outputflag = 0  # mode muet
-    # Mise à jour du modèle
-    model.update()
-
-    return model, t_arr, t_dep, is_present
-
-
-def init_variables(
-    m: grb.Model,
-    liste_id_train_arrivee: list,
-    liste_id_train_depart: list,
-    tempsMin: int,
-    tempsMax: int,
-) -> tuple[dict, dict, dict, dict]:
-    """
-    Initialise les variables de début des tâches pour les trains.
-
-    Paramètres :
-    -----------
-    m : grb.Model
-        Modèle d'optimisation Gurobi.
-    liste_id_train_arrivee : list
-        Identifiants des trains à l'arrivée.
-    liste_id_train_depart : list
-        Identifiants des trains au départ.
-    tempsMin : int
-        Temps d'arrivée du premier train.
-    tempsMax : int
-        Temps de départ du dernier train.
-
-    Retourne :
-    ---------
-    tuple[dict, dict, dict, dict]
-        - Variables des débuts de tâches d'arrivée.
-        - Variables des débuts de tâches de départ.
-        - Variables de présence dans les voies.
-        - Variables de début de la première tâche de débranchement sur les wagons du train de départ.
-    """
-    t_arr = variables_debut_tache_arrive(m, liste_id_train_arrivee)
-    t_dep = variables_debut_tache_depart(m, liste_id_train_depart)
-    is_present = variable_is_present(
-        m, liste_id_train_arrivee, liste_id_train_depart, tempsMin, tempsMax
-    )
-    premier_wagon = variable_premier_wagon(m, liste_id_train_depart)
-
-    return t_arr, t_dep, is_present, premier_wagon
-
-
-def variables_debut_tache_arrive(
-    model: grb.Model,
-    liste_id_train_arrivee: list,
-) -> dict:
-    """
-    Initialise les variables de début des tâches pour les trains à l'arrivée.
-
-    Paramètres :
-    -----------
-    model : grb.Model
-        Modèle d'optimisation Gurobi.
-    liste_id_train_arrivee : list
-        Identifiants des trains à l'arrivée.
-
-    Retourne :
-    ---------
-    dict
-        Variables de début des tâches d'arrivée, indexées par (tâche, train).
-    """
-    t_arr = {
-        (m, id_train_arr): model.addVar(vtype=grb.GRB.INTEGER, name="t")
-        for m in Taches.TACHES_ARRIVEE
-        for id_train_arr in liste_id_train_arrivee
-    }
-    return t_arr
-
-
-def variables_debut_tache_depart(
-    model: grb.Model,
-    liste_id_train_depart: list,
-) -> dict:
-    """
-    Initialise les variables de début des tâches pour les trains au départ.
-
-    Paramètres :
-    -----------
-    model : grb.Model
-        Modèle d'optimisation Gurobi.
-    liste_id_train_depart : list
-        Identifiants des trains au départ.
-
-    Retourne :
-    ---------
-    dict
-        Variables de début des tâches de départ, indexées par (tâche, train).
-    """
-    t_dep = {
-        (m, id_train_dep): model.addVar(vtype=grb.GRB.INTEGER, name="t")
-        for m in Taches.TACHES_DEPART
-        for id_train_dep in liste_id_train_depart
-    }
-    return t_dep
-
-
-def variable_is_present(
-    model: grb.Model,
-    liste_id_train_arrivee: list,
-    liste_id_train_depart: list,
-    tempsMin: int,
-    tempsMax: int,
-) -> dict:
-    """
-    Initialise les variables de présence des trains sur les différents chantiers.
-
-    Paramètres :
-    -----------
-    model : grb.Model
-        Modèle d'optimisation Gurobi.
-    liste_id_train_arrivee : list
-        Identifiants des trains à l'arrivée.
-    liste_id_train_depart : list
-        Identifiants des trains au départ.
-    tempsMin : int
-        Temps d'arrivée du premier train.
-    tempsMax : int
-        Temps de départ du dernier train.
-
-    Retourne :
-    ---------
-    dict
-        Variables de présence des trains sur les chantiers à un instant t, indexées par (chantier, train, temps).
-    """
-    is_present = {
-        Chantiers.REC: {
-            (id_train, t): model.addVar(
-                vtype=grb.GRB.BINARY, name=f"is_present_REC_{id_train}_{t}"
-            )
-            for id_train in liste_id_train_arrivee
-            for t in range(tempsMin, tempsMax + 1)
-        },
-        Chantiers.FOR: {
-            (id_train, t): model.addVar(
-                vtype=grb.GRB.BINARY, name=f"is_present_FOR_{id_train}_{t}"
-            )
-            for id_train in liste_id_train_depart
-            for t in range(tempsMin, tempsMax + 1)
-        },
-        Chantiers.DEP: {
-            (id_train, t): model.addVar(
-                vtype=grb.GRB.BINARY, name=f"is_present_DEP_{id_train}_{t}"
-            )
-            for id_train in liste_id_train_depart
-            for t in range(tempsMin, tempsMax + 1)
-        },
-    }
-    return is_present
-
-
-def variable_premier_wagon(
-    model: grb.Model,
-    liste_id_train_depart: list,
-) -> dict:
-    """
-    Initialise les variables de temps du début de la première tâche de débranchement sur les trains d'arrivée contenant des wagons du train de départ.
-
-    Paramètres :
-    -----------
-    model : grb.Model
-        Modèle d'optimisation Gurobi.
-    liste_id_train_depart : list
-        Identifiants des trains au départ.
-
-    Retourne :
-    ---------
-    dict
-        Variables de temps du début de la première tâche de débranchement sur les trains d'arrivée contenant des wagons du train de départ, indexées par identifiant de train de départ.
-    """
-    premier_wagon = {
-        id_train: model.addVar(vtype=grb.GRB.INTEGER, name=f"premier_wagon_{id_train}")
-        for id_train in liste_id_train_depart
-    }
-    return premier_wagon
 
 
 def init_contraintes(
@@ -354,8 +45,8 @@ def init_contraintes(
     limites_voies: dict,
     is_present: dict,
     premier_wagon: dict,
-    tempsMax: int,
-    tempsMin: int,
+    temps_max: int,
+    temps_min: int,
 ) -> bool:
     """
     Initialise les contraintes du modèle d'optimisation.
@@ -387,10 +78,11 @@ def init_contraintes(
     is_present : dict
         Présence ou non du train id_train sur un chantier.
     premier_wagon : dict
-        Variables de temps du début de la première tâche de débranchement sur les trains d'arrivée contenant des wagons du train de départ
-    tempsMin : int
+        Variables de temps du début de la première tâche de débranchement
+        sur les trains d'arrivée contenant des wagons du train de départ
+    temps_min : int
         Temps d'arrivée du premier train.
-    tempsMax : int
+    temps_max : int
         Temps de départ du dernier train.
 
     Retourne :
@@ -456,8 +148,8 @@ def init_contraintes(
         limites_voies,
         is_present,
         premier_wagon,
-        tempsMax,
-        tempsMin,
+        temps_max,
+        temps_min,
     )
 
     contraintes_premier_wagon(
@@ -517,9 +209,9 @@ def contraintes_temporalite(
         liste_id_train_depart,
         "Contrainte assurant la succession des tâches sur les trains de départ",
     ):
-        M_dep = Taches.TACHES_DEPART[-1]
+        m_dep = Taches.TACHES_DEPART[-1]
         model.addConstr(
-            15 * t_dep[(M_dep, id_train_dep)] + Taches.T_DEP[M_dep] <= t_d[id_train_dep]
+            15 * t_dep[(m_dep, id_train_dep)] + Taches.T_DEP[m_dep] <= t_d[id_train_dep]
         )
         for m in Taches.TACHES_DEPART[:-1]:
             model.addConstr(
@@ -632,8 +324,7 @@ def contraintes_ouvertures_machines(
     id_file: int,
 ) -> tuple[dict, dict, dict]:
     """
-    Ajoute des contraintes pour respecter les horaires d'utilisation des machines
-    et garantir qu'un seul train utilise une machine à la fois.
+    Ajoute des contraintes pour respecter les horaires d'utilisation des machines.
 
     Paramètres :
     -----------
@@ -1086,16 +777,12 @@ def contraintes_succession(
     ------------
     model : grb.Model
         Modèle Gurobi pour ajouter les contraintes.
-
     t_arr : dict
         Temps de début des tâches d'arrivée.
-
     t_dep : dict
         Temps de début des tâches de départ.
-
     liste_id_train_depart : list
         Identifiants des trains de départ.
-
     dict_correspondances : dict
         Correspondances entre trains de départ et d'arrivée.
 
@@ -1126,48 +813,40 @@ def contraintes_nombre_voies(
     limites_voies: dict,
     is_present: dict,
     premier_wagon: dict,
-    tempsMax: int,
-    tempsMin: int = 0,
+    temps_max: int,
+    temps_min: int = 0,
 ) -> bool:
     """
-    Ajoute des contraintes limitant le nombre de trains présents sur un même chantier à tout instant.
+    Ajoute des contraintes limitant le nombre de
+    trains présents sur un même chantier à tout instant.
 
     Paramètres :
     ------------
     model : grb.Model
         Modèle Gurobi pour ajouter les contraintes.
-
     t_arr : dict
         Temps de début des tâches d'arrivée.
-
     t_dep : dict
         Temps de début des tâches de départ'.
-
     t_a : dict
         Temps d'arrivée des trains en gare.
-
     t_d : dict
         Temps de départ des trains.
-
     liste_id_train_arrivee : list
         Identifiants des trains d'arrivée'.
-
     liste_id_train_depart : list
         Identifiants des trains de départ.
-
     limites_voies : dict
         Nombre de voies utilisables par chantier.
-
     is_present : dict
         Présence ou non du train id_train sur un chantier.
-
-    tempsMin : int
+    temps_min : int
         Heure d'arrivée du premier train (permet de réduire le nombre de variables à créer)
-
-    tempsMax : int
+    temps_max : int
         Heure de départ du dernier train (permet de réduire le nombre de variables à créer)
     premier_wagon : dict
-        Variables de temps du début de la première tâche de débranchement sur les trains d'arrivée contenant des wagons du train de départ
+        Variables de temps du début de la première tâche de débranchement
+        sur les trains d'arrivée contenant des wagons du train de départ
 
     Retourne :
     ----------
@@ -1185,21 +864,21 @@ def contraintes_nombre_voies(
                 vtype=grb.GRB.BINARY, name=f"before_ub_REC_{id_train}_{t}"
             )
             for id_train in liste_id_train_arrivee
-            for t in range(tempsMin, tempsMax + 1)
+            for t in range(temps_min, temps_max + 1)
         },
         Chantiers.FOR: {
             (id_train, t): model.addVar(
                 vtype=grb.GRB.BINARY, name=f"before_ub_FOR_{id_train}_{t}"
             )
             for id_train in liste_id_train_depart
-            for t in range(tempsMin, tempsMax + 1)
+            for t in range(temps_min, temps_max + 1)
         },
         Chantiers.DEP: {
             (id_train, t): model.addVar(
                 vtype=grb.GRB.BINARY, name=f"before_ub_DEP_{id_train}_{t}"
             )
             for id_train in liste_id_train_depart
-            for t in range(tempsMin, tempsMax + 1)
+            for t in range(temps_min, temps_max + 1)
         },
     }
 
@@ -1209,26 +888,26 @@ def contraintes_nombre_voies(
                 vtype=grb.GRB.BINARY, name=f"after_lb_REC_{id_train}_{t}"
             )
             for id_train in liste_id_train_arrivee
-            for t in range(tempsMin, tempsMax + 1)
+            for t in range(temps_min, temps_max + 1)
         },
         Chantiers.FOR: {
             (id_train, t): model.addVar(
                 vtype=grb.GRB.BINARY, name=f"after_lb_FOR_{id_train}_{t}"
             )
             for id_train in liste_id_train_depart
-            for t in range(tempsMin, tempsMax + 1)
+            for t in range(temps_min, temps_max + 1)
         },
         Chantiers.DEP: {
             (id_train, t): model.addVar(
                 vtype=grb.GRB.BINARY, name=f"after_lb_DEP_{id_train}_{t}"
             )
             for id_train in liste_id_train_depart
-            for t in range(tempsMin, tempsMax + 1)
+            for t in range(temps_min, temps_max + 1)
         },
     }
 
     for id_train in liste_id_train_arrivee:
-        for t in range(tempsMin, tempsMax + 1):  # Parcours du temps
+        for t in range(temps_min, temps_max + 1):  # Parcours du temps
             # Si le train est présent, t_start <= t <= t_end
             # is_present => t_arr[(1, id_train)] <= t
             model.addConstr(
@@ -1271,7 +950,7 @@ def contraintes_nombre_voies(
             )
 
     for id_train in liste_id_train_depart:
-        for t in range(tempsMin, tempsMax + 1):  # Parcours du temps
+        for t in range(temps_min, temps_max + 1):  # Parcours du temps
             # Si le train est présent, t_start <= t <= t_end
             model.addConstr(
                 15 * t
@@ -1350,7 +1029,7 @@ def contraintes_nombre_voies(
             )
 
     for t in tqdm(
-        range(tempsMin, tempsMax + 1),
+        range(temps_min, temps_max + 1),
         "Contrainte relative au nombre de voies des chantiers",
     ):
         model.addConstr(
@@ -1393,24 +1072,22 @@ def contraintes_premier_wagon(
     premier_wagon: dict,
 ) -> bool:
     """
-    Ajoute les contraintes définissant le temps du premier débranchement de wagon du train de départ.
+    Ajoute les contraintes définissant le temps du
+    premier débranchement de wagon du train de départ.
 
     Paramètres :
     ------------
     model : grb.Model
         Modèle Gurobi pour ajouter les contraintes.
-
     t_arr : dict
         Temps de début des tâches d'arrivée.
-
     dict_correspondances : dict
         Correspondances entre trains d'arrivée et de départ.
-
     liste_id_train_depart : list
         Identifiants des trains de départ.
-
     premier_wagon : dict
-        Variables de temps du début de la première tâche de débranchement sur les trains d'arrivée contenant des wagons du train de départ
+        Variables de temps du début de la première tâche de débranchement
+        sur les trains d'arrivée contenant des wagons du train de départ.
 
     Retourne :
     ----------
@@ -1431,26 +1108,5 @@ def contraintes_premier_wagon(
                 ]
             )
         )
-
-    return True
-
-
-def init_objectif(
-    model: grb.Model,
-    is_present: dict,
-    liste_id_train_depart: dict,
-    tempsMin: int,
-    tempsMax: int,
-) -> bool:
-    max_FOR = model.addVar(vtype=grb.GRB.INTEGER, lb=0, name="max_FOR")
-    for t in range(tempsMin, tempsMax + 1):
-        model.addConstr(
-            max_FOR
-            >= grb.quicksum(
-                is_present[Chantiers.FOR][(id_train, t)]
-                for id_train in liste_id_train_depart
-            )
-        )
-    model.setObjective(max_FOR, grb.GRB.MINIMIZE)
 
     return True

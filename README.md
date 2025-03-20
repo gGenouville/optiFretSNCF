@@ -31,6 +31,7 @@ Nous définissons les variables et les contraintes comme suit avec $x=a$ pour le
 * $bub[c,n,t_{15}]$ : Variable binaire qui dit si le train $n$ est entré dans le chantier $c$ au temps $t_{15}$ compté en quinzaine de minute.
 * $alb[c,n,t_{15}]$ : Variable binaire qui dit si le train $n$ n'est pas encore sorti du chantier $c$ au temps $t_{15}$ compté en quinzaine de minute.
 * $\max_{FOR}$ : Le pic d'utilisation des voies du chantier de formation.
+* $pw[n]$: variable qui prend l'heure ou le premier wagon de train de départ $n$ commence sa tâche de débranchement.
 
 ### Contraintes
 
@@ -102,6 +103,8 @@ Nous définissons les variables et les contraintes comme suit avec $x=a$ pour le
     $$\forall c,\forall t, \sum_n ip[c,n,t]\leq L_v(c)$$
 * La contrainte sur le pic du chantier de formation est :
     $$\forall t,\sum_n ip[FOR,n,t]\leq\max_{FOR}$$
+* La contrainte pour l'heure du premier wagon qui est sur le chantier de formation du train de départ $$n$$, soit quand un wagon du train $$n$$ commence la tâche de débranchement.
+  $$pw[n]= \min_{n' \in D[n]} 15t_a[n,3]$$
 
 ### Fonction objectif
 

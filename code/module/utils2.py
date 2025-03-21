@@ -228,7 +228,8 @@ def read_sillon(file: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     df_sillons_arr = pd.read_excel(
         file, sheet_name=Feuilles.SILLONS_ARRIVEE
     )  # Arrivées
-    df_sillons_dep = pd.read_excel(file, sheet_name=Feuilles.SILLONS_DEPART)  # Départs
+    df_sillons_dep = pd.read_excel(
+        file, sheet_name=Feuilles.SILLONS_DEPART)  # Départs
 
     # Conversion des dates en datetime64
     df_sillons_arr[Colonnes.SILLON_JARR] = pd.to_datetime(
@@ -293,7 +294,8 @@ def init_t_a(df_sillons_arr: pd.DataFrame, id_file: int) -> dict:
         if pd.notna(date_arr) and heure_arr is not None:
             # Nombre de jours depuis le 08/08
             days_since_ref = (date_arr - Constantes.BASE_TIME).days
-            minutes_since_ref = (days_since_ref * 1440) + heure_arr  # Ajout des minutes
+            minutes_since_ref = (days_since_ref * 1440) + \
+                heure_arr  # Ajout des minutes
 
             # Création d'un ID unique : Train_ID_Date, car certains trains portant le même ID passent sur des jours différents
             train_id_unique = f"{train_id}_{date_arr.strftime('%d')}"
@@ -301,7 +303,8 @@ def init_t_a(df_sillons_arr: pd.DataFrame, id_file: int) -> dict:
             t_a[train_id_unique] = minutes_since_ref
         # Pour résoudre manuellement le problème sur le fichier excel de la mini_instance
         if id_file == 0:
-            t_a = {"1": (24 + 9) * 60, "2": (24 + 13) * 60, "3": (24 + 16) * 60}
+            t_a = {"1": (24 + 9) * 60, "2": (24 + 13)
+                   * 60, "3": (24 + 16) * 60}
     return t_a
 
 
@@ -335,7 +338,8 @@ def init_t_d(df_sillons_dep: pd.DataFrame, id_file: int) -> dict:
         if pd.notna(date_dep) and heure_dep is not None:
             # Nombre de jours depuis le 08/08
             days_since_ref = (date_dep - Constantes.BASE_TIME).days
-            minutes_since_ref = (days_since_ref * 1440) + heure_dep  # Ajout des minutes
+            minutes_since_ref = (days_since_ref * 1440) + \
+                heure_dep  # Ajout des minutes
 
             # Création d'un ID unique : Train_ID_Date
             train_id_unique = f"{train_id}_{date_dep.strftime('%d')}"
@@ -343,7 +347,8 @@ def init_t_d(df_sillons_dep: pd.DataFrame, id_file: int) -> dict:
             t_d[train_id_unique] = minutes_since_ref
         # Pour résoudre manuellement le problème sur le fichier excel de la mini_instance
         if id_file == 0:
-            t_d = {"4": (24 + 21) * 60, "5": (24 + 21) * 60, "6": (24 + 21) * 60 + 30}
+            t_d = {"4": (24 + 21) * 60, "5": (24 + 21)
+                   * 60, "6": (24 + 21) * 60 + 30}
     return t_d
 
 
@@ -417,7 +422,8 @@ def dernier_depart(df_sillons_dep, base_time_value):
     """
     # Convertir les dates et heures en datetime
     df_sillons_dep["Datetime"] = pd.to_datetime(
-        df_sillons_dep["JDEP"].astype(str) + " " + df_sillons_dep["HDEP"].astype(str)
+        df_sillons_dep["JDEP"].astype(
+            str) + " " + df_sillons_dep["HDEP"].astype(str)
     )
 
     # Trouver l'heure de départ la plus tardive
@@ -451,7 +457,8 @@ def premiere_arrivee(df_sillons_arr, base_time_value):
     """
     # Convertir les dates et heures en datetime
     df_sillons_arr["Datetime"] = pd.to_datetime(
-        df_sillons_arr["JDEP"].astype(str) + " " + df_sillons_arr["HDEP"].astype(str)
+        df_sillons_arr["JDEP"].astype(
+            str) + " " + df_sillons_arr["HDEP"].astype(str)
     )
 
     # Trouver l'heure de départ la plus tardive
@@ -591,7 +598,8 @@ def creation_limites_machines(file: str, id_file: int) -> dict:
         .apply(lambda x: convertir_en_minutes(x, file, id_file))
     )
 
-    listes_plates_machines = indisponibilites_machines.apply(lambda x: list(chain(*x)))
+    listes_plates_machines = indisponibilites_machines.apply(
+        lambda x: list(chain(*x)))
 
     limites_machines = []
     for liste in listes_plates_machines:
@@ -826,5 +834,33 @@ def ecriture_donnees_sortie(
     # Versement des trames vers la feuilles de calcul
     with pd.ExcelWriter("sortie_jalon2.xlsx", engine="openpyxl") as writer:
         df_xl.to_excel(writer, sheet_name="Taches machine", index=False)
-        df_xl2.to_excel(writer, sheet_name="Occupation voie chantier", index=False)
+        df_xl2.to_excel(
+            writer, sheet_name="Occupation voie chantier", index=False)
     return True
+
+
+def roulement(file):
+
+    df = pd.read_excel(file, sheet_name="Roulements agents")
+    count = df['Roulement'].count()
+
+    return count
+
+
+def get_roulement_agents(file):
+    df = pd.read_excel(file, sheet_name="Roulements agents")
+
+    n_agent = {r+1: df.at[r, 'Nombre agents'] for r in df.index}
+
+    return n_agent
+
+
+def roulements_opérants_sur_tache(file, lieu, m):
+    df = pd.read_excel(file, sheet_name="Roulement agent")
+    if lieu == 'arr':
+        return df[df['Connaissances chantiers'].str.contains('REC', na=False)].index.tolist()
+    else:
+        if m in [1, 2, 3]:
+            return df[df['Connaissances chantiers'].str.contains('FOR', na=False)].index.tolist()
+        else:
+            return df[df['Connaissances chantiers'].str.contains('DEP', na=False)].index.tolist()

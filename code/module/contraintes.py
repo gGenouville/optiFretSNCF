@@ -22,10 +22,12 @@ contraintes_premier_wagon : Ajoute les contraintes définissant le
 import gurobipy as grb
 from tqdm import tqdm
 
-from module.utils2 import (
+from constants import (
     Chantiers,
     Machines,
     Taches,
+)
+from module.utils import (
     creation_limites_chantiers,
     creation_limites_machines,
 )

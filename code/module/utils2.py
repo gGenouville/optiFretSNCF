@@ -35,6 +35,7 @@ base_time : Définit l'origine des temps pour les calculs.
 import datetime
 import re
 from itertools import chain
+from math import *
 
 import pandas as pd
 
@@ -839,15 +840,40 @@ def ecriture_donnees_sortie(
     return True
 
 
-def roulement(file):
+def nombre_roulements(file: str) -> int:
+    """
+    Fonction qui retourne le nombre de roulements d'agents différents.
 
+    Paramètres :
+    -----------
+    file : str
+        Chemin du fichier Excel contenant les données des chantiers.
+
+    Retourne :
+    ---------
+    int
+        Nombre de roulements d'agents différents.
+    """
     df = pd.read_excel(file, sheet_name="Roulements agents")
     count = df['Roulement'].count()
 
     return count
 
 
-def get_roulement_agents(file):
+def get_roulement_agents(file: str) -> dict:
+    """
+    Fonction qui définie un dictionnaire associant à chaque type de roulement d'agents le nombre d'agents disponibles quotidiennement.
+
+    Paramètres :
+    -----------
+    file : str
+        Chemin du fichier Excel contenant les données des chantiers.
+
+    Retourne :
+    ---------
+    dict
+        Dictionnaire associant à chaque roulement d'agent le nombre d'agents disponibles quotidiennement.
+    """
     df = pd.read_excel(file, sheet_name="Roulements agents")
 
     n_agent = {r+1: df.at[r, 'Nombre agents'] for r in df.index}
@@ -855,12 +881,98 @@ def get_roulement_agents(file):
     return n_agent
 
 
-def roulements_opérants_sur_tache(file, lieu, m):
-    df = pd.read_excel(file, sheet_name="Roulement agent")
+def roulements_opérants_sur_tache(file: str, lieu: str, m: int) -> list:
+    """
+    Fonction qui retourne la liste des roulements d'agents possiblement utilisables pour réaliser la tâche m.
+
+    Paramètres :
+    -----------
+    file : str
+        Chemin du fichier Excel contenant les données des chantiers.
+    lieu : str
+        Vaut 'arr' si la tâche est réalisée sur un train d'arrivée et 'dep' si elle est réalisée sur un train de départ.
+    m : int
+        Numéro de la tâche considérée.
+
+    Retourne :
+    ---------
+    list
+        Liste des roulements utilisables pour réaliser la tâche m.
+    """
+    df = pd.read_excel(file, sheet_name="Roulements agents")
     if lieu == 'arr':
-        return df[df['Connaissances chantiers'].str.contains('REC', na=False)].index.tolist()
-    else:
         if m in [1, 2, 3]:
-            return df[df['Connaissances chantiers'].str.contains('FOR', na=False)].index.tolist()
+            return (df[df['Connaissances chantiers'].str.contains('REC', na=False)].index + 1).tolist()
         else:
-            return df[df['Connaissances chantiers'].str.contains('DEP', na=False)].index.tolist()
+            raise ValueError(
+                f"Erreur : '{m}' ne correspond à aucune tâche sur les trains de '{lieu}'")
+    elif lieu == 'dep':
+        if m in [1, 2, 3]:
+            return (df[df['Connaissances chantiers'].str.contains('FOR', na=False)].index + 1).tolist()
+        elif m == 4:
+            return (df[df['Connaissances chantiers'].str.contains('DEP', na=False)].index + 1).tolist()
+        else:
+            raise ValueError(
+                f"Erreur : '{m}' ne correspond à aucune tâche sur les trains de '{lieu}'")
+    else:
+        raise ValueError(
+            f"Erreur : '{lieu} n'est pas une entrée acceptable")
+
+
+def nombre_cycles_agents(file: str, temps_min: int, temps_max: int) -> dict:
+    """
+    Retourne un dictionnaire contenant le nombre de cycles possibles sur toute la durée étudiée pour chaque roulement d'agents.
+
+    Paramètres :
+    -----------
+    file : str
+        Chemin du fichier Excel contenant les données des chantiers.
+    temps_min : int
+        Heure d'arrivée du premier train (permet de réduire le nombre de variables à créer).
+    temps_max : int
+        Heure de départ du dernier train (permet de réduire le nombre de variables à créer).
+
+    Retourne :
+    ---------
+    dict
+        Dictionnaire contenant le nombre de cycles possibles sur toute la durée étudiée pour chaque roulement d'agents.
+    """
+    delta = temps_max - temps_min
+    delta_jours = ceil(delta/(60*24))
+
+    df = pd.read_excel(file, sheet_name="Roulements agents")
+
+    nombre_cycles = {i+1: len(str(row).split(";"))*delta_jours for i,
+                     row in enumerate(df["Cycles horaires"].dropna())}
+
+    return nombre_cycles
+
+
+def heure_debut_roulement(file: str, nombre_cycles: dict, nombre_roulements: int) -> dict:
+    """
+    Retourne un dictionnaire associant à un roulement r et un cycle k l'heure de début de celui-ci.
+
+    Paramètres :
+    -----------
+    file : str
+        Chemin du fichier Excel contenant les données des chantiers.
+    nombre_cycles : dict
+        Dictionnaire contenant le nombre de cycles possibles sur toute la durée étudiée pour chaque roulement d'agents.
+    nombre_roulements : int
+        Nombre de roulements d'agents différents.
+
+    Retourne :
+    ---------
+    dict
+        Dictionnaire associant à un roulement r et un cycle k l'heure de début de celui-ci.
+    """
+    df = pd.read_excel(file, sheet_name="Roulements agents")
+
+    h_deb = {}
+    for r in range(1, nombre_roulements + 1):
+        for k in range(1, nombre_cycles[r] + 1):
+            mod = len(str(df.at[r-1, "Cycles horaires"]).split(";"))
+            h_deb[(r, k)] = int(str(df.at[r-1, "Cycles horaires"]
+                                    ).split(";")[k % mod - 1].split("-")[0].split(":")[0])
+
+    return h_deb

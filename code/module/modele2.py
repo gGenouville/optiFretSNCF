@@ -69,11 +69,11 @@ def init_model(
     grb.Model
         Modèle d'optimisation Gurobi initialisé.
     tuple
-        Variables du modèle (t_arr, t_dep).
+        Variables du modèle (t_arr, t_dep, is_present).
     """
-    model = grb.Model("SNCF JALON 1")
+    model = grb.Model("SNCF JALON 3")
 
-    t_arr, t_dep, is_present, premier_wagon = init_variables(
+    t_arr, t_dep, is_present, premier_wagon, t_arr15, t_dep15 = init_variables(
         model,
         liste_id_train_arrivee,
         liste_id_train_depart,
@@ -97,6 +97,8 @@ def init_model(
         premier_wagon,
         temps_max,
         temps_min,
+        t_arr15,
+        t_dep15
     )
 
     init_objectif(
@@ -149,13 +151,15 @@ def init_variables(
             débranchement sur les wagons du train de départ.
     """
     t_arr = variables_debut_tache_arrive(m, liste_id_train_arrivee)
+    t_arr15 = variables_debut_tache_arrive_machine(m, liste_id_train_arrivee)
     t_dep = variables_debut_tache_depart(m, liste_id_train_depart)
+    t_dep15 = variables_debut_tache_depart_machine(m, liste_id_train_depart)
     is_present = variable_is_present(
         m, liste_id_train_arrivee, liste_id_train_depart, temps_min, temps_max
     )
     premier_wagon = variable_premier_wagon(m, liste_id_train_depart)
 
-    return t_arr, t_dep, is_present, premier_wagon
+    return t_arr, t_dep, is_present, premier_wagon, t_arr15, t_dep15
 
 
 def variables_debut_tache_arrive(
@@ -184,6 +188,32 @@ def variables_debut_tache_arrive(
     }
     return t_arr
 
+def variables_debut_tache_arrive_machine(
+    model: grb.Model,
+    liste_id_train_arrivee: list,
+) -> dict:
+    """
+    Initialise les variables de début des tâches pour les trains à l'arrivée.
+
+    Paramètres :
+    -----------
+    model : grb.Model
+        Modèle d'optimisation Gurobi.
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+
+    Retourne :
+    ---------
+    dict
+        Variables de début des tâches d'arrivée, indexées par (tâche, train).
+    """
+    t_arr15 = {
+        (m, id_train_arr): model.addVar(vtype=grb.GRB.INTEGER, name="t")
+        for m in Taches.TACHES_ARR_MACHINE
+        for id_train_arr in liste_id_train_arrivee
+    }
+    return t_arr15
+
 
 def variables_debut_tache_depart(
     model: grb.Model,
@@ -210,6 +240,32 @@ def variables_debut_tache_depart(
         for id_train_dep in liste_id_train_depart
     }
     return t_dep
+
+def variables_debut_tache_depart_machine(
+    model: grb.Model,
+    liste_id_train_depart: list,
+) -> dict:
+    """
+    Initialise les variables de début des tâches pour les trains au départ.
+
+    Paramètres :
+    -----------
+    model : grb.Model
+        Modèle d'optimisation Gurobi.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+
+    Retourne :
+    ---------
+    dict
+        Variables de début des tâches de départ, indexées par (tâche, train).
+    """
+    t_dep15 = {
+        (m, id_train_dep): model.addVar(vtype=grb.GRB.INTEGER, name="t")
+        for m in Taches.TACHES_DEP_MACHINE
+        for id_train_dep in liste_id_train_depart
+    }
+    return t_dep15
 
 
 def variable_is_present(

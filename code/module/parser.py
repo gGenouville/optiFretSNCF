@@ -27,7 +27,17 @@ def init_dfs(file_path: str):
 
     df_cor = init_df_correspondances(df)
 
-    return df, df_sil_arr, df_sil_dep, df_cor
+    df_chantiers = df[Feuilles.CHANTIERS]
+    df_machines = df[Feuilles.MACHINES]
+
+    return (
+        df,
+        df_sil_arr,
+        df_sil_dep,
+        df_cor,
+        df_chantiers,
+        df_machines,
+    )
 
 
 def init_df_sillon_arr(df: pd.DataFrame) -> pd.DataFrame:
@@ -254,6 +264,9 @@ def init_dict_limites_voies(df_chantiers):
         Chantiers.DEP: int(df_chantiers[Colonnes.NOMBRE_VOIES].astype(str)[2]),
     }
     return limites_chantiers_voies
+
+
+def init_dicts(): ...
 
 
 # mes enormes couillles velues balancee de facon menacante sur la table

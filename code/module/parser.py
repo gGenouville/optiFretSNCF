@@ -266,7 +266,16 @@ def init_dict_limites_voies(df_chantiers: pd.DataFrame) -> dict:
     return limites_chantiers_voies
 
 
-def init_dicts(file_path: str) -> hard - shit:
+def init_dicts(
+    file_path: str,
+) -> tuple[
+    dict,
+    dict,
+    dict,
+    dict,
+    dict,
+    dict,
+]:
     (
         _,
         df_sillons_arr,

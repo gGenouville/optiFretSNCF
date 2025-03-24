@@ -914,6 +914,7 @@ def nombre_cycles_agents(file: str, temps_min: int, temps_max: int) -> dict:
     dict
         Dictionnaire contenant le nombre de cycles possibles sur toute la durée étudiée pour chaque roulement d'agents.
     """
+
     delta = temps_max - temps_min
     delta_jours = ceil(delta/(60*24))
 
@@ -925,7 +926,7 @@ def nombre_cycles_agents(file: str, temps_min: int, temps_max: int) -> dict:
     return nombre_cycles
 
 
-def heure_debut_roulement(file: str, nombre_cycles: dict, nombre_roulements: int) -> dict:
+def heure_debut_roulement(file: str, nb_cycles: dict, nb_roulements: int) -> dict:
     """
     Retourne un dictionnaire associant à un roulement r et un cycle k l'heure de début de celui-ci, comptée à partir de la base temporelle.
 
@@ -946,11 +947,11 @@ def heure_debut_roulement(file: str, nombre_cycles: dict, nombre_roulements: int
     df = pd.read_excel(file, sheet_name="Roulements agents")
 
     h_deb = {}
-    for r in range(1, nombre_roulements + 1):
-        for k in range(1, nombre_cycles[r] + 1):
+    for r in range(1, nb_roulements + 1):
+        for k in range(1, nb_cycles[r] + 1):
             mod = len(str(df.at[r-1, "Cycles horaires"]).split(";"))
             h_deb[(r, k)] = int(str(df.at[r-1, "Cycles horaires"]
-                                    ).split(";")[k % mod - 1].split("-")[0].split(":")[0]) + (k-1) // 3 * 24
+                                    ).split(";")[k % mod - 1].split("-")[0].split(":")[0]) + (k-1) // mod * 24
 
     return h_deb
 

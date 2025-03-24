@@ -42,7 +42,6 @@ def init_model(
     nombre_roulements,
     roulements_opérants_sur_tache,
     max_agents_sur_roulement,
-    nb_cycles,
     h_deb,
     comp
 ) -> tuple[grb.Model, dict, dict, dict]:
@@ -116,7 +115,6 @@ def init_model(
         nombre_agents,
         max_agents_sur_roulement,
         roulements_opérants_sur_tache,
-        nb_cycles,
         h_deb,
         who,
         comp
@@ -183,8 +181,8 @@ def init_variables(
         m, liste_id_train_arrivee, liste_id_train_depart, temps_min, temps_max
     )
     premier_wagon = variable_premier_wagon(m, liste_id_train_depart)
-    who = variable_who(m, file, nombre_cycles_agents, heure_debut_roulement, temps_min, temps_max,
-                       nombre_roulements, liste_id_train_arrivee, liste_id_train_depart, roulements_opérants_sur_tache)
+    who = variable_who(m, nombre_cycles_agents, liste_id_train_arrivee,
+                       liste_id_train_depart, roulements_opérants_sur_tache, heure_debut_roulement)
     nb_agents = variable_agents(
         m, nombre_roulements, nombre_cycles_agents, roulements_agents)
 
@@ -337,16 +335,14 @@ def variable_agents(model, nombre_roulements, nombre_cycles_agents, max_agents_s
     return nombre_agents
 
 
-def variable_who(model, file, nombre_cycles_agents, heure_debut_roulement, temps_min, temps_max, nombre_roulements, liste_id_train_arrivee, liste_id_train_depart, roulements_opérants_sur_tache):
-    h_deb = heure_debut_roulement(file, nombre_cycles_agents(
-        file, temps_min, temps_max), nombre_roulements)
+def variable_who(model, nombre_cycles_agents, liste_id_train_arrivee, liste_id_train_depart, roulements_opérants_sur_tache, h_deb):
     who_arr = {
         (m, n, r, k, t): model.addVar(vtype=grb.GRB.BINARY, name=f"Bool_roulement_{r}_réalise_tâche_arr_{m}_au_cycle_{k}_au_temps_{t}")
-        for m in [1, 2, 3] for n in liste_id_train_arrivee for r in roulements_opérants_sur_tache[(file, 'arr', m)] for k in range(1, nombre_cycles_agents[r] + 1) for t in range(h_deb/5, h_deb/5+8*12-1)
+        for m in [1, 2, 3] for n in liste_id_train_arrivee for r in roulements_opérants_sur_tache[('arr', m)] for k in range(1, nombre_cycles_agents[r] + 1) for t in range(h_deb[(r, k)]//5, h_deb[(r, k)]//5+8*12-1)
     }
     who_dep = {
         (m, n, r, k, t): model.addVar(vtype=grb.GRB.BINARY, name=f"Bool_roulement_{r}_réalise_tâche_dep_{m}_au_cycle_{k}_au_temps_{t}")
-        for m in [1, 2, 3, 4] for n in liste_id_train_depart for r in roulements_opérants_sur_tache[(file, 'dep', m)] for k in range(1, nombre_cycles_agents[r] + 1) for t in range(h_deb/5, h_deb/5+8*12-1)
+        for m in [1, 2, 3, 4] for n in liste_id_train_depart for r in roulements_opérants_sur_tache[('dep', m)] for k in range(1, nombre_cycles_agents[r] + 1) for t in range(h_deb[(r, k)]//5, h_deb[(r, k)]//5+8*12-1)
     }
     return who_arr, who_dep
 

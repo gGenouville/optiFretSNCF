@@ -860,7 +860,7 @@ def nombre_roulements(file: str) -> int:
     return count
 
 
-def get_roulement_agents(file: str) -> dict:
+def nombre_max_agents_sur_roulement(file: str) -> dict:
     """
     Fonction qui définie un dictionnaire associant à chaque type de roulement d'agents le nombre d'agents disponibles quotidiennement.
 
@@ -881,42 +881,19 @@ def get_roulement_agents(file: str) -> dict:
     return n_agent
 
 
-def roulements_opérants_sur_tache(file: str, lieu: str, m: int) -> list:
-    """
-    Fonction qui retourne la liste des roulements d'agents possiblement utilisables pour réaliser la tâche m.
-
-    Paramètres :
-    -----------
-    file : str
-        Chemin du fichier Excel contenant les données des chantiers.
-    lieu : str
-        Vaut 'arr' si la tâche est réalisée sur un train d'arrivée et 'dep' si elle est réalisée sur un train de départ.
-    m : int
-        Numéro de la tâche considérée.
-
-    Retourne :
-    ---------
-    list
-        Liste des roulements utilisables pour réaliser la tâche m.
-    """
+def roulements_opérants_sur_tache(file: str) -> dict:
     df = pd.read_excel(file, sheet_name="Roulements agents")
-    if lieu == 'arr':
-        if m in [1, 2, 3]:
-            return (df[df['Connaissances chantiers'].str.contains('REC', na=False)].index + 1).tolist()
-        else:
-            raise ValueError(
-                f"Erreur : '{m}' ne correspond à aucune tâche sur les trains de '{lieu}'")
-    elif lieu == 'dep':
-        if m in [1, 2, 3]:
-            return (df[df['Connaissances chantiers'].str.contains('FOR', na=False)].index + 1).tolist()
-        elif m == 4:
-            return (df[df['Connaissances chantiers'].str.contains('DEP', na=False)].index + 1).tolist()
-        else:
-            raise ValueError(
-                f"Erreur : '{m}' ne correspond à aucune tâche sur les trains de '{lieu}'")
-    else:
-        raise ValueError(
-            f"Erreur : '{lieu} n'est pas une entrée acceptable")
+
+    roulements_opérants_sur_tache = {}
+    for m in [1, 2, 3]:
+        roulements_opérants_sur_tache[('arr', m)] = (
+            df[df['Connaissances chantiers'].str.contains('REC', na=False)].index + 1).tolist()
+        roulements_opérants_sur_tache[('dep', m)] = (
+            df[df['Connaissances chantiers'].str.contains('FOR', na=False)].index + 1).tolist()
+    for m in [4]:
+        roulements_opérants_sur_tache[('dep', m)] = (
+            df[df['Connaissances chantiers'].str.contains('DEP', na=False)].index + 1).tolist()
+    return (roulements_opérants_sur_tache)
 
 
 def nombre_cycles_agents(file: str, temps_min: int, temps_max: int) -> dict:
@@ -950,7 +927,7 @@ def nombre_cycles_agents(file: str, temps_min: int, temps_max: int) -> dict:
 
 def heure_debut_roulement(file: str, nombre_cycles: dict, nombre_roulements: int) -> dict:
     """
-    Retourne un dictionnaire associant à un roulement r et un cycle k l'heure de début de celui-ci.
+    Retourne un dictionnaire associant à un roulement r et un cycle k l'heure de début de celui-ci, comptée à partir de la base temporelle.
 
     Paramètres :
     -----------
@@ -973,6 +950,28 @@ def heure_debut_roulement(file: str, nombre_cycles: dict, nombre_roulements: int
         for k in range(1, nombre_cycles[r] + 1):
             mod = len(str(df.at[r-1, "Cycles horaires"]).split(";"))
             h_deb[(r, k)] = int(str(df.at[r-1, "Cycles horaires"]
-                                    ).split(";")[k % mod - 1].split("-")[0].split(":")[0])
+                                    ).split(";")[k % mod - 1].split("-")[0].split(":")[0]) + (k-1) // 3 * 24
 
     return h_deb
+
+
+def comp(file):
+    df = pd.read_excel(file, sheet_name="Roulements agents")
+
+    def extract_category(value):
+        categories = []
+        if "WPY_REC" in value:
+            categories.append("REC")
+        if "WPY_FOR" in value:
+            categories.append("FOR")
+        if "WPY_DEP" in value:
+            categories.append("DEP")
+        return categories
+
+    comp = {}
+
+    for r in range(1, len(df) + 1):
+        value = str(df.loc[r - 1, "Connaissances chantiers"])
+        comp[r] = extract_category(value)
+
+    return (comp)

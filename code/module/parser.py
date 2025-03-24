@@ -255,7 +255,7 @@ def init_dict_limites_machines(
     return limites_machines
 
 
-def init_dict_limites_voies(df_chantiers):
+def init_dict_limites_voies(df_chantiers: pd.DataFrame) -> dict:
     # df_chantiers = pd.read_excel(file, sheet_name=Feuilles.CHANTIERS)
 
     limites_chantiers_voies = {
@@ -266,7 +266,36 @@ def init_dict_limites_voies(df_chantiers):
     return limites_chantiers_voies
 
 
-def init_dicts(): ...
+def init_dicts(file_path: str) -> hard - shit:
+    (
+        _,
+        df_sillons_arr,
+        df_sillons_dep,
+        df_correspondance,
+        df_chantiers,
+        df_machines,
+    ) = init_dfs(file_path)
+
+    first_arr, dernier_depart, monday = init_values(
+        df_sillons_arr,
+        df_sillons_dep,
+    )
+    return (
+        init_dict_t_a(df_sillons_arr),
+        init_dict_t_d(df_sillons_dep),
+        init_dict_correspondances(df_correspondance),
+        init_dict_limites_chantiers(
+            df_chantiers,
+            df_sillons_dep,
+            dernier_depart,
+        ),
+        init_dict_limites_machines(
+            df_machines,
+            df_sillons_dep,
+            dernier_depart,
+        ),
+        init_dict_limites_voies(df_chantiers),
+    )
 
 
 # mes enormes couillles velues balancee de facon menacante sur la table

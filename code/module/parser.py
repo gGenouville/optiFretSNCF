@@ -267,7 +267,13 @@ def init_dict_limites_voies(df_chantiers: pd.DataFrame) -> dict:
 
 
 def init_dicts(
-    file_path: str,
+    df_sillons_arr: pd.DataFrame,
+    df_sillons_dep: pd.DataFrame,
+    df_correspondance: pd.DataFrame,
+    df_chantiers: pd.DataFrame,
+    df_machines: pd.DataFrame,
+    first_arr: float,
+    dernier_depart: float,
 ) -> tuple[
     dict,
     dict,
@@ -304,6 +310,58 @@ def init_dicts(
             dernier_depart,
         ),
         init_dict_limites_voies(df_chantiers),
+    )
+
+
+# ----- parser -----#
+
+
+def parser(file_path: str):
+    (
+        _,
+        df_sillons_arr,
+        df_sillons_dep,
+        df_correspondance,
+        df_chantiers,
+        df_machines,
+    ) = init_dfs(file_path)
+
+    first_arr, dernier_depart, monday = init_values(
+        df_sillons_arr,
+        df_sillons_dep,
+    )
+    (
+        dict_t_a,
+        dict_t_d,
+        dict_correspondances,
+        dict_limites_chantiers,
+        dict_limites_machines,
+        dict_limites_voies,
+    ) = init_dicts(
+        df_sillons_arr,
+        df_sillons_dep,
+        df_correspondance,
+        df_chantiers,
+        df_machines,
+        first_arr,
+        dernier_depart,
+    )
+
+    return (
+        first_arr,
+        dernier_depart,
+        monday,
+        df_sillons_arr,
+        df_sillons_dep,
+        df_correspondance,
+        df_chantiers,
+        df_machines,
+        dict_t_a,
+        dict_t_d,
+        dict_correspondances,
+        dict_limites_chantiers,
+        dict_limites_machines,
+        dict_limites_voies,
     )
 
 

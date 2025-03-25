@@ -875,19 +875,19 @@ def nombre_max_agents_sur_roulement(file: str) -> dict:
 def roulements_operants_sur_tache(file: str) -> dict:
     df = pd.read_excel(file, sheet_name="Roulements agents")
 
-    roulements_operants_sur_tache = {}
+    roulements_operants_sur_m = {}
     for m in [1, 2, 3]:
-        roulements_operants_sur_tache[("arr", m)] = (
+        roulements_operants_sur_m[("arr", m)] = (
             df[df["Connaissances chantiers"].str.contains("REC", na=False)].index + 1
         ).tolist()
-        roulements_operants_sur_tache[("dep", m)] = (
+        roulements_operants_sur_m[("dep", m)] = (
             df[df["Connaissances chantiers"].str.contains("FOR", na=False)].index + 1
         ).tolist()
     for m in [4]:
-        roulements_operants_sur_tache[("dep", m)] = (
+        roulements_operants_sur_m[("dep", m)] = (
             df[df["Connaissances chantiers"].str.contains("DEP", na=False)].index + 1
         ).tolist()
-    return roulements_operants_sur_tache
+    return roulements_operants_sur_m
 
 
 def heure_debut_roulement(file: str, temps_min: int, temps_max: int) -> dict:
@@ -913,7 +913,7 @@ def heure_debut_roulement(file: str, temps_min: int, temps_max: int) -> dict:
     nb_roulements = df.shape[0]
 
     delta = temps_max - temps_min
-    delta_jours = floor(delta / (4 * 24))
+    delta_jours = ceil(delta / (4 * 24))
 
     jour_semaine_disponibilite = {
         i + 1: [int(x) for x in str(row).split(";")]
@@ -941,9 +941,10 @@ def heure_debut_roulement(file: str, temps_min: int, temps_max: int) -> dict:
 
     while jour_de_la_semaine <= dernier_jour_de_la_semaine:
         for r in range(1, nb_roulements + 1):
-            if (jour_de_la_semaine.weekday()+1)%7 in jour_semaine_disponibilite[r]:
+            if (jour_de_la_semaine.weekday())%7+1 in jour_semaine_disponibilite[r]:
                 h_deb0[r] += [jour_de_la_semaine + t for t in h_deb_jour[r]]
         jour_de_la_semaine += datetime.timedelta(days=1)
+    print(h_deb0)
 
     nb_cycles_agents = {r: len(h_deb0[r]) for r in h_deb0}
 

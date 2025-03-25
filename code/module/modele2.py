@@ -127,10 +127,9 @@ def init_model(
 
     init_objectif(
         model,
-        is_present,
-        liste_id_train_depart,
-        temps_min,
-        temps_max,
+        nombre_agents,
+        nombre_roulements,
+        nb_cycles_agents
     )
 
     # Choix d'un paramétrage d'affichage
@@ -138,7 +137,7 @@ def init_model(
     # Mise à jour du modèle
     model.update()
 
-    return model, t_arr, t_dep, is_present
+    return model, t_arr, t_dep, is_present, who_arr, who_dep
 
 
 def init_variables(
@@ -344,7 +343,7 @@ def variable_agents(
     nombre_agents = {
         (r, k): model.addVar(
             vtype=grb.GRB.INTEGER,
-            lb=0.0,
+            lb=0,
             ub=max_agents_sur_roulement[r],
             name=f"Nombre_agents_roulement_{r}_cycle_{k}",
         )
@@ -389,10 +388,9 @@ def variable_who(
 
 def init_objectif(
     model: grb.Model,
-    is_present: dict,
-    liste_id_train_depart: dict,
-    temps_min: int,
-    temps_max: int,
+    nombre_agents: dict,
+    nombre_roulements: int,
+    nb_cycles_agents: dict,
 ) -> bool:
     """
     Crée la variable à minimiser de la fonction object ainsi que ses contraintes.
@@ -415,15 +413,8 @@ def init_objectif(
     bool
         True si la fonction objectif est ajoutée.
     """
-    max_FOR = model.addVar(vtype=grb.GRB.INTEGER, lb=0, name="max_FOR")
-    for t in range(temps_min, temps_max + 1):
-        model.addConstr(
-            max_FOR
-            >= grb.quicksum(
-                is_present[Chantiers.FOR][(id_train, t)]
-                for id_train in liste_id_train_depart
-            )
-        )
-    model.setObjective(max_FOR, grb.GRB.MINIMIZE)
+    
+    model.setObjective(grb.quicksum([nombre_agents[(r,k)] for r in range(1, nombre_roulements + 1)
+        for k in range(1, nb_cycles_agents[r] + 1)]), grb.GRB.MINIMIZE)
 
     return True

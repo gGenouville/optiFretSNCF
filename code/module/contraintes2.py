@@ -178,16 +178,16 @@ def init_contraintes(
         nb_cycle_jour,
     )
 
-    #unicite_roulement_et_cycle(
-    #    model,
-    #    equip,
-    #    nombre_cycles_agents,
-    #    liste_id_train_arrivee,
-    #    liste_id_train_depart,
-    #    who_arr,
-    #    who_dep,
-    #    h_deb,
-    #)
+    unicite_roulement_et_cycle(
+       model,
+       equip,
+       nombre_cycles_agents,
+       liste_id_train_arrivee,
+       liste_id_train_depart,
+       who_arr,
+       who_dep,
+       h_deb,
+    )
 
     non_saturation_personnel(
         model,
@@ -1231,7 +1231,7 @@ def unicite_roulement_et_cycle(
                         for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12)
                     ]
                 )
-                == Taches.T_ARR[m] // 5
+                >= Taches.T_ARR[m] // 5
             )
 
     for m in [1, 2, 3, 4]:
@@ -1245,7 +1245,7 @@ def unicite_roulement_et_cycle(
                         for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12)
                     ]
                 )
-                == Taches.T_DEP[m] // 5
+                >= Taches.T_DEP[m] // 5
             )
 
 

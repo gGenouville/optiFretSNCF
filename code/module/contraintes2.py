@@ -9,10 +9,10 @@ Fonctions :
 init_contraintes : Initialise les contraintes du modèle d'optimisation.
 contraintes_temporalite : Ajoute les contraintes de temporalité des tâches.
 contraintes_machines : Ajoute les contraintes d'exclusion pour les machines.
-contraintes_ouvertures_machines : Ajoute les contraintes 
-	pour respecter les horaires d'utilisation des machines.
+contraintes_ouvertures_machines : Ajoute les contraintes
+        pour respecter les horaires d'utilisation des machines.
 contraintes_ouvertures_chantiers : Ajoute les contraintes
-	pour respecter les horaires d'ouverture des chantiers.
+        pour respecter les horaires d'ouverture des chantiers.
 contraintes_succession : Ajoute des contraintes de succession entre les tâches
     d'arrivée et de départ des trains, en tenant compte des correspondances de wagons.
 contraintes_nombre_voies : Ajoute des contraintes limitant
@@ -53,10 +53,13 @@ def init_contraintes(
     nombre_cycles_agents,
     nombre_agents,
     max_agents_sur_roulement,
-    roulements_opérants_sur_tache,
+    equip,
     h_deb,
-    who,
-    comp
+    who_arr,
+    who_dep,
+    comp_arr,
+    comp_dep,
+    nb_cycle_jour,
 ) -> bool:
     """
     Initialise les contraintes du modèle d'optimisation.
@@ -167,16 +170,63 @@ def init_contraintes(
     )
 
     contrainte_nombre_max_agents(
-        model, nombre_roulements, nombre_cycles_agents, nombre_agents, max_agents_sur_roulement)
+        model,
+        nombre_roulements,
+        nombre_cycles_agents,
+        nombre_agents,
+        max_agents_sur_roulement,
+        nb_cycle_jour,
+    )
 
-    unicité_roulement_et_cycle(model, roulements_opérants_sur_tache, nombre_cycles_agents,
-                               liste_id_train_arrivee, liste_id_train_depart, who, h_deb)
+    #unicite_roulement_et_cycle(
+    #    model,
+    #    equip,
+    #    nombre_cycles_agents,
+    #    liste_id_train_arrivee,
+    #    liste_id_train_depart,
+    #    who_arr,
+    #    who_dep,
+    #    h_deb,
+    #)
 
-    non_saturation_personnel(model, nombre_roulements, nombre_cycles_agents, h_deb, who,
-                             liste_id_train_arrivee, liste_id_train_depart, comp, nombre_agents)
+    non_saturation_personnel(
+        model,
+        nombre_roulements,
+        nombre_cycles_agents,
+        h_deb,
+        who_arr,
+        who_dep,
+        liste_id_train_arrivee,
+        liste_id_train_depart,
+        comp_arr,
+        comp_dep,
+        nombre_agents,
+    )
 
-    contrainte_cohérence_who_t(model, roulements_opérants_sur_tache,
-                               liste_id_train_arrivee, liste_id_train_depart, nombre_cycles_agents, who, h_deb, t_arr, t_dep)
+    contrainte_cohérence_who_t(
+        model,
+        equip,
+        liste_id_train_arrivee,
+        liste_id_train_depart,
+        nombre_cycles_agents,
+        who_arr,
+        who_dep,
+        h_deb,
+        t_arr,
+        t_dep,
+    )
+    contrainte_unicite_who_cycle(
+        model,
+        equip,
+        liste_id_train_arrivee,
+        liste_id_train_depart,
+        nombre_cycles_agents,
+        who_arr,
+        who_dep,
+        h_deb,
+        t_arr,
+        t_dep,
+    )
 
     return True
 
@@ -233,8 +283,7 @@ def contraintes_temporalite(
     ):
         m_dep = Taches.TACHES_DEPART[-1]
         model.addConstr(
-            15 * t_dep[(m_dep, id_train_dep)] +
-            Taches.T_DEP[m_dep] <= t_d[id_train_dep]
+            15 * t_dep[(m_dep, id_train_dep)] + Taches.T_DEP[m_dep] <= t_d[id_train_dep]
         )
         for m in Taches.TACHES_DEPART[:-1]:
             model.addConstr(
@@ -377,8 +426,7 @@ def contraintes_ouvertures_machines(
 
     Limites_machines = creation_limites_machines(file, id_file)
 
-    N_machines = {key: len(Limites_machines[key])
-                  for key in Limites_machines.keys()}
+    N_machines = {key: len(Limites_machines[key]) for key in Limites_machines.keys()}
 
     delta_lim_machine_DEB = {}
 
@@ -418,8 +466,7 @@ def contraintes_ouvertures_machines(
                 model.addConstr(
                     15 * t_arr[(3, id_arr)]
                     >= Limites_machines[Machines.DEB][-1]
-                    - (1 - delta_lim_machine_DEB[id_arr]
-                       [N_machines[Machines.DEB] // 2])
+                    - (1 - delta_lim_machine_DEB[id_arr][N_machines[Machines.DEB] // 2])
                     * M_big
                 )
 
@@ -473,8 +520,7 @@ def contraintes_ouvertures_machines(
                 model.addConstr(
                     15 * t_dep[(1, id_dep)]
                     >= Limites_machines[Machines.FOR][-1]
-                    - (1 - delta_lim_machine_FOR[id_dep]
-                       [N_machines[Machines.FOR] // 2])
+                    - (1 - delta_lim_machine_FOR[id_dep][N_machines[Machines.FOR] // 2])
                     * M_big
                 )
 
@@ -528,8 +574,7 @@ def contraintes_ouvertures_machines(
                 model.addConstr(
                     15 * t_dep[(3, id_dep)]
                     >= Limites_machines[Machines.DEG][-1]
-                    - (1 - delta_lim_machine_DEG[id_dep]
-                       [N_machines[Machines.DEG] // 2])
+                    - (1 - delta_lim_machine_DEG[id_dep][N_machines[Machines.DEG] // 2])
                     * M_big
                 )
 
@@ -591,8 +636,7 @@ def contraintes_ouvertures_chantiers(
 
     Limites_chantiers = creation_limites_chantiers(file, id_file)
 
-    N_chantiers = {key: len(Limites_chantiers[key])
-                   for key in Limites_chantiers.keys()}
+    N_chantiers = {key: len(Limites_chantiers[key]) for key in Limites_chantiers.keys()}
 
     delta_lim_chantier_rec = {1: {}, 2: {}, 3: {}}
 
@@ -825,8 +869,7 @@ def contraintes_succession(
     ):
         for id_arr in dict_correspondances[id_dep]:
             model.addConstr(
-                15 * t_dep[(1, id_dep)] >= 15 *
-                t_arr[(3, id_arr)] + Taches.T_ARR[3]
+                15 * t_dep[(1, id_dep)] >= 15 * t_arr[(3, id_arr)] + Taches.T_ARR[3]
             )
     return True
 
@@ -957,8 +1000,7 @@ def contraintes_nombre_voies(
                 15 * t
                 <= 15 * t_arr[(3, id_train)]
                 + Taches.T_ARR[3]
-                + Mbig *
-                (1 - before_upper_bound[Chantiers.REC][(id_train, t)]),
+                + Mbig * (1 - before_upper_bound[Chantiers.REC][(id_train, t)]),
                 name=f"before_upper_bound_REC_{id_train}_{t}",
             )
             model.addConstr(
@@ -1000,8 +1042,7 @@ def contraintes_nombre_voies(
                 15 * t
                 <= 15 * t_dep[(3, id_train)]
                 + Taches.T_DEP[3]
-                + Mbig *
-                (1 - before_upper_bound[Chantiers.FOR][(id_train, t)]),
+                + Mbig * (1 - before_upper_bound[Chantiers.FOR][(id_train, t)]),
                 name=f"before_upper_bound_FOR_{id_train}_{t}",
             )
             model.addConstr(
@@ -1039,8 +1080,7 @@ def contraintes_nombre_voies(
             model.addConstr(
                 15 * t
                 <= t_d[id_train]
-                + Mbig *
-                (1 - before_upper_bound[Chantiers.DEP][(id_train, t)]),
+                + Mbig * (1 - before_upper_bound[Chantiers.DEP][(id_train, t)]),
                 name=f"before_upper_bound_DEP_{id_train}_{t}",
             )
             model.addConstr(
@@ -1150,70 +1190,194 @@ def contrainte_nombre_max_agents(
     nombre_cycles_agents: dict,
     nombre_agents: dict,
     max_agents_sur_roulement: dict,
+    nb_cycle_jour,
 ) -> bool:
     for r in range(1, nombre_roulements + 1):
-        for q in range(nombre_cycles_agents[r]//3):
-            model.addConstr(nombre_agents[(r, 3*q+1)] + nombre_agents[(
-                r, 3*q+2)] + nombre_agents[(r, 3*q+3)] <= max_agents_sur_roulement[r])
+        for q in range(nombre_cycles_agents[r] // nb_cycle_jour[r]):
+            model.addConstr(
+                grb.quicksum(
+                    [
+                        nombre_agents[(r, nb_cycle_jour[r] * q + i)]
+                        for i in range(1, nb_cycle_jour[r] + 1)
+                    ]
+                )
+                <= max_agents_sur_roulement[r]
+            )
 
     return True
 
 
-def unicité_roulement_et_cycle(model, roulements_opérants_sur_tache, nb_cycles, liste_id_train_arrivee, liste_id_train_depart, who, h_deb):
-    r_sur_m_arr = {m: roulements_opérants_sur_tache[('arr', m)] for m in [
-        1, 2, 3]}
-    r_sur_m_dep = {m: roulements_opérants_sur_tache[('dep', m)] for m in [
-        1, 2, 3, 4]}
+def unicite_roulement_et_cycle(
+    model,
+    equip,
+    nb_cycles_agents,
+    liste_id_train_arrivee,
+    liste_id_train_depart,
+    who_arr,
+    who_dep,
+    h_deb,
+):
+    r_sur_m_arr = {m: equip[("arr", m)] for m in [1, 2, 3]}
+    r_sur_m_dep = {m: equip[("dep", m)] for m in [1, 2, 3, 4]}
 
     for m in [1, 2, 3]:
         for id_train in liste_id_train_arrivee:
-            model.addConstr(grb.quicksum([
-                who[(m, id_train, r, k, t)]
-                for r in r_sur_m_arr[m]
-                for k in nb_cycles[r]
-                for t in range(h_deb[r]//5, h_deb[r]//5+8*12-1)
-            ]) == Taches.T_ARR[m] / 5)
+            model.addConstr(
+                grb.quicksum(
+                    [
+                        who_arr[(m, id_train, r, k, t)]
+                        for r in r_sur_m_arr[m]
+                        for k in range(1, nb_cycles_agents[r] + 1)
+                        for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12)
+                    ]
+                )
+                == Taches.T_ARR[m] // 5
+            )
 
     for m in [1, 2, 3, 4]:
         for id_train in liste_id_train_depart:
-            model.addConstr(grb.quicksum([
-                who[(m, id_train, r, k, t)]
-                for r in r_sur_m_dep[m]
-                for k in nb_cycles[r]
-                for t in range(h_deb[r]//5, h_deb[r]//5+8*12-1)
-            ]) == Taches.T_DEP[m] / 5)
+            model.addConstr(
+                grb.quicksum(
+                    [
+                        who_dep[(m, id_train, r, k, t)]
+                        for r in r_sur_m_dep[m]
+                        for k in range(1, nb_cycles_agents[r] + 1)
+                        for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12)
+                    ]
+                )
+                == Taches.T_DEP[m] // 5
+            )
 
 
-def non_saturation_personnel(model, nombre_roulements, nb_cycles, h_deb, who, liste_id_train_arrivee, liste_id_train_depart, comp, nombre_agents):
-    for r in nombre_roulements:
-        for k in nb_cycles[r]:
-            for t in range(h_deb[r]//5, h_deb[r]//5+8*12-1):
-                model.addConstr(grb.quicksum([who[(m, id_train, r, k, t)] for id_train in liste_id_train_arrivee +
-                                liste_id_train_depart for m in comp[r]]) <= nombre_agents[(r, k)])
+def non_saturation_personnel(
+    model,
+    nombre_roulements,
+    nb_cycles,
+    h_deb,
+    who_arr,
+    who_dep,
+    liste_id_train_arrivee,
+    liste_id_train_depart,
+    comp_arr,
+    comp_dep,
+    nombre_agents,
+):
+    for r in range(1, nombre_roulements + 1):
+        for k in range(1, nb_cycles[r] + 1):
+            for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12):
+                model.addConstr(
+                    grb.quicksum(
+                        [
+                            who_arr[(m, id_train, r, k, t)]
+                            for id_train in liste_id_train_arrivee
+                            for m in comp_arr[r]
+                        ]
+                    )
+                    + grb.quicksum(
+                        [
+                            who_dep[(m, id_train, r, k, t)]
+                            for id_train in liste_id_train_depart
+                            for m in comp_dep[r]
+                        ]
+                    )
+                    <= nombre_agents[(r, k)]
+                )
 
 
-def contrainte_cohérence_who_t(model, roulements_opérants_sur_tache, liste_id_train_arrivee, liste_id_train_depart, nb_cycles, who, h_deb, t_arr, t_dep):
-    eps = 0.0001
+def contrainte_cohérence_who_t(
+    model,
+    equip,
+    liste_id_train_arrivee,
+    liste_id_train_depart,
+    nb_cycles,
+    who_arr,
+    who_dep,
+    h_deb,
+    t_arr,
+    t_dep,
+):
+    eps = 0.1
     M_big = 100000000
-    r_sur_m_arr = [roulements_opérants_sur_tache[('arr', m)] for m in [
-        1, 2, 3]]
-    r_sur_m_dep = [roulements_opérants_sur_tache[('dep', m)] for m in [
-        1, 2, 3, 4]]
+    r_sur_m_arr = {m: equip[("arr", m)] for m in [1, 2, 3]}
+    r_sur_m_dep = {m: equip[("dep", m)] for m in [1, 2, 3, 4]}
     for m in [1, 2, 3]:
         for id_train in liste_id_train_arrivee:
             for r in r_sur_m_arr[m]:
-                for k in nb_cycles[r]:
-                    for t in range(h_deb[r]//5, h_deb[r]//5+8*12-1):
+                for k in range(1, nb_cycles[r] + 1):
+                    for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12):
                         model.addConstr(
-                            t_arr[(m, id_train)] <= 3*t + M_big*(1-who[(m, id_train, r, k, t)]))
+                            15 * t_arr[(m, id_train)]
+                            <= 5 * t + M_big * (1 - who_arr[(m, id_train, r, k, t)])
+                        )
                         model.addConstr(
-                            3*t <= t_arr[(m, id_train)] + Taches.T_ARR[m] + eps + M_big*(1-who[(m, id_train, r, k, t)]))
+                            5 * t
+                            <= 15 * t_arr[(m, id_train)]
+                            + Taches.T_ARR[m]
+                            + eps
+                            + M_big * (1 - who_arr[(m, id_train, r, k, t)])
+                        )
     for m in [1, 2, 3, 4]:
         for id_train in liste_id_train_depart:
             for r in r_sur_m_dep[m]:
-                for k in nb_cycles[r]:
-                    for t in range(h_deb[r]//5, h_deb[r]//5+8*12-1):
+                for k in range(1, nb_cycles[r] + 1):
+                    for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12):
                         model.addConstr(
-                            t_dep[(m, id_train)] <= 3*t + M_big*(1-who[(m, id_train, r, k, t)]))
+                            15 * t_dep[(m, id_train)]
+                            <= 5 * t + M_big * (1 - who_dep[(m, id_train, r, k, t)])
+                        )
                         model.addConstr(
-                            3*t <= t_dep[(m, id_train)] + Taches.T_ARR[m] + eps + M_big*(1-who[(m, id_train, r, k, t)]))
+                            5 * t
+                            <= 15 * t_dep[(m, id_train)]
+                            + Taches.T_DEP[m]
+                            + eps
+                            + M_big * (1 - who_dep[(m, id_train, r, k, t)])
+                        )
+
+
+def contrainte_unicite_who_cycle(
+    model,
+    equip,
+    liste_id_train_arrivee,
+    liste_id_train_depart,
+    nb_cycles,
+    who_arr,
+    who_dep,
+    h_deb,
+    t_arr,
+    t_dep,
+):
+    M_big = 100000000
+    r_sur_m_arr = {m: equip[("arr", m)] for m in [1, 2, 3]}
+    r_sur_m_dep = {m: equip[("dep", m)] for m in [1, 2, 3, 4]}
+    for m in [1, 2, 3]:
+        for id_train in liste_id_train_arrivee:
+            for r in r_sur_m_arr[m]:
+                for k in range(1, nb_cycles[r] + 1):
+                    for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12):
+                        model.addConstr(
+                            h_deb[(r, k)]
+                            <= 15 * t_arr[(m, id_train)]
+                            + M_big * (1 - who_arr[(m, id_train, r, k, t)])
+                        )
+                        model.addConstr(
+                            15 * t_arr[(m, id_train)] + Taches.T_ARR[m]
+                            <= h_deb[(r, k)]
+                            + 8 * 60
+                            + M_big * (1 - who_arr[(m, id_train, r, k, t)])
+                        )
+    for m in [1, 2, 3, 4]:
+        for id_train in liste_id_train_depart:
+            for r in r_sur_m_dep[m]:
+                for k in range(1, nb_cycles[r] + 1):
+                    for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12):
+                        model.addConstr(
+                            h_deb[(r, k)]
+                            <= 15 * t_dep[(m, id_train)]
+                            + M_big * (1 - who_dep[(m, id_train, r, k, t)])
+                        )
+                        model.addConstr(
+                            15 * t_dep[(m, id_train)] + Taches.T_DEP[m]
+                            <= h_deb[(r, k)]
+                            + 8 * 60
+                            + M_big * (1 - who_dep[(m, id_train, r, k, t)])
+                        )

@@ -9,11 +9,11 @@ Fonctions :
 -----------
 init_model : Initialise le modèle Gurobi avec les contraintes de base.
 init_variables: Initialise les variables de décision.
-variables_debut_tache_arrive : Initialise les variables 
+variables_debut_tache_arrive : Initialise les variables
     de début des tâches pour les trains d'arrivée.
 variables_debut_tache_depart : Initialise les variables
     de début des tâches pour les trains de départ.
-variable_is_present : Initialise les variables de 
+variable_is_present : Initialise les variables de
     présence des trains sur les différents chantiers.
 variable_premier_wagon : Initialise les variables de temps du début de la première tâche
     de débranchement sur les trains d'arrivée contenant des wagons du train de départ.
@@ -37,13 +37,15 @@ def init_model(
     limites_voies: dict,
     temps_max: int,
     temps_min: int,
-    nombre_cycles_agents,
+    nb_cycles_agents,
     heure_debut_roulement,
     nombre_roulements,
-    roulements_opérants_sur_tache,
+    equip,
     max_agents_sur_roulement,
     h_deb,
-    comp
+    comp_arr,
+    comp_dep,
+    nb_cycle_jour
 ) -> tuple[grb.Model, dict, dict, dict]:
     """
     Initialise le modèle d'optimisation avec les variables et contraintes.
@@ -80,18 +82,18 @@ def init_model(
     """
     model = grb.Model("SNCF JALON 1")
 
-    t_arr, t_dep, is_present, premier_wagon, who, nombre_agents = init_variables(
+    t_arr, t_dep, is_present, premier_wagon, who_arr, who_dep, nombre_agents = init_variables(
         model,
         liste_id_train_arrivee,
         liste_id_train_depart,
         temps_min,
         temps_max,
         file,
-        nombre_cycles_agents,
+        nb_cycles_agents,
         heure_debut_roulement,
         nombre_roulements,
         max_agents_sur_roulement,
-        roulements_opérants_sur_tache,
+        equip,
     )
 
     init_contraintes(
@@ -111,13 +113,16 @@ def init_model(
         temps_max,
         temps_min,
         nombre_roulements,
-        nombre_cycles_agents,
+        nb_cycles_agents,
         nombre_agents,
         max_agents_sur_roulement,
-        roulements_opérants_sur_tache,
+        equip,
         h_deb,
-        who,
-        comp
+        who_arr,
+        who_dep,
+        comp_arr,
+        comp_dep,
+        nb_cycle_jour
     )
 
     init_objectif(
@@ -143,14 +148,14 @@ def init_variables(
     temps_min: int,
     temps_max: int,
     file,
-    nombre_cycles_agents,
+    nb_cycles_agents,
     heure_debut_roulement,
     nombre_roulements,
     roulements_agents,
-    roulements_opérants_sur_tache
+    equip,
 ) -> tuple[dict, dict, dict, dict]:
     """
-    Initialise les variables de début des tâches pour les trains, 
+    Initialise les variables de début des tâches pour les trains,
     de présence sur un chantier de premier débranchement de wagon.
 
     Paramètres :
@@ -181,12 +186,19 @@ def init_variables(
         m, liste_id_train_arrivee, liste_id_train_depart, temps_min, temps_max
     )
     premier_wagon = variable_premier_wagon(m, liste_id_train_depart)
-    who = variable_who(m, nombre_cycles_agents, liste_id_train_arrivee,
-                       liste_id_train_depart, roulements_opérants_sur_tache, heure_debut_roulement)
+    who_arr, who_dep = variable_who(
+        m,
+        nb_cycles_agents,
+        liste_id_train_arrivee,
+        liste_id_train_depart,
+        equip,
+        heure_debut_roulement,
+    )
     nb_agents = variable_agents(
-        m, nombre_roulements, nombre_cycles_agents, roulements_agents)
+        m, nombre_roulements, nb_cycles_agents, roulements_agents
+    )
 
-    return t_arr, t_dep, is_present, premier_wagon, who, nb_agents
+    return t_arr, t_dep, is_present, premier_wagon, who_arr, who_dep, nb_agents
 
 
 def variables_debut_tache_arrive(
@@ -316,33 +328,61 @@ def variable_premier_wagon(
     Retourne :
     ---------
     dict
-        Variables de temps du début de la première tâche de débranchement sur les trains 
+        Variables de temps du début de la première tâche de débranchement sur les trains
         d'arrivée contenant des wagons du train de départ, indexées par identifiant de train de départ.
     """
     premier_wagon = {
-        id_train: model.addVar(vtype=grb.GRB.INTEGER,
-                               name=f"premier_wagon_{id_train}")
+        id_train: model.addVar(vtype=grb.GRB.INTEGER, name=f"premier_wagon_{id_train}")
         for id_train in liste_id_train_depart
     }
     return premier_wagon
 
 
-def variable_agents(model, nombre_roulements, nombre_cycles_agents, max_agents_sur_roulement):
+def variable_agents(
+    model, nombre_roulements, nb_cycles_agents, max_agents_sur_roulement
+):
     nombre_agents = {
-        (r, k): model.addVar(vtype=grb.GRB.INTEGER, lb=0.0, ub=max_agents_sur_roulement[r], name=f"Nombre_agents_roulement_{r}_cycle_{k}")
-        for r in range(1, nombre_roulements + 1) for k in range(1, nombre_cycles_agents[r] + 1)
+        (r, k): model.addVar(
+            vtype=grb.GRB.INTEGER,
+            lb=0.0,
+            ub=max_agents_sur_roulement[r],
+            name=f"Nombre_agents_roulement_{r}_cycle_{k}",
+        )
+        for r in range(1, nombre_roulements + 1)
+        for k in range(1, nb_cycles_agents[r] + 1)
     }
     return nombre_agents
 
 
-def variable_who(model, nombre_cycles_agents, liste_id_train_arrivee, liste_id_train_depart, roulements_opérants_sur_tache, h_deb):
+def variable_who(
+    model,
+    nb_cycles_agents,
+    liste_id_train_arrivee,
+    liste_id_train_depart,
+    equip,
+    h_deb,
+):
     who_arr = {
-        (m, n, r, k, t): model.addVar(vtype=grb.GRB.BINARY, name=f"Bool_roulement_{r}_réalise_tâche_arr_{m}_au_cycle_{k}_au_temps_{t}")
-        for m in [1, 2, 3] for n in liste_id_train_arrivee for r in roulements_opérants_sur_tache[('arr', m)] for k in range(1, nombre_cycles_agents[r] + 1) for t in range(h_deb[(r, k)]//5, h_deb[(r, k)]//5+8*12-1)
+        (m, n, r, k, t): model.addVar(
+            vtype=grb.GRB.BINARY,
+            name=f"Bool_roulement_{r}_réalise_tâche_arr_{m}_au_cycle_{k}_au_temps_{t}",
+        )
+        for m in [1, 2, 3]
+        for n in liste_id_train_arrivee
+        for r in equip[("arr", m)]
+        for k in range(1, nb_cycles_agents[r] + 1)
+        for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12)
     }
     who_dep = {
-        (m, n, r, k, t): model.addVar(vtype=grb.GRB.BINARY, name=f"Bool_roulement_{r}_réalise_tâche_dep_{m}_au_cycle_{k}_au_temps_{t}")
-        for m in [1, 2, 3, 4] for n in liste_id_train_depart for r in roulements_opérants_sur_tache[('dep', m)] for k in range(1, nombre_cycles_agents[r] + 1) for t in range(h_deb[(r, k)]//5, h_deb[(r, k)]//5+8*12-1)
+        (m, n, r, k, t): model.addVar(
+            vtype=grb.GRB.BINARY,
+            name=f"Bool_roulement_{r}_réalise_tâche_dep_{m}_au_cycle_{k}_au_temps_{t}",
+        )
+        for m in [1, 2, 3, 4]
+        for n in liste_id_train_depart
+        for r in equip[("dep", m)]
+        for k in range(1, nb_cycles_agents[r] + 1)
+        for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12)
     }
     return who_arr, who_dep
 

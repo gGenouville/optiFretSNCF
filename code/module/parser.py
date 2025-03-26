@@ -1,4 +1,72 @@
-"""to parse mf excels"""
+"""
+Sous-module 'parser.py' - Traitement et analyse des données ferroviaires.
+
+Ce sous-module contient plusieurs fonctions permettant de traiter des données
+ferroviaires relatives aux sillons de train, aux correspondances, aux chantiers,
+aux machines, et aux agents. Il permet d'initialiser des dictionnaires avec ces
+informations et d'écrire les résultats sous forme de fichiers Excel pour une
+analyse ultérieure.
+
+Fonctions principales :
+-----------------------
+- init_dict_t_a(df_sillons_arr: pd.DataFrame) -> dict :
+    Initialise un dictionnaire des horaires d’arrivée des trains.
+
+- init_dict_t_d(df_sillons_dep: pd.DataFrame) -> dict :
+    Initialise un dictionnaire des horaires de départ des trains.
+
+- init_dict_correspondances(df_correspondance: pd.DataFrame) -> dict :
+    Crée un dictionnaire des correspondances entre trains d’arrivée et de départ.
+
+- init_dict_limites_chantiers(
+    df_chantiers: pd.DataFrame,
+    df_sillon_dep: pd.DataFrame,
+    dernier_depart: float
+    ) -> dict :
+    Génère un dictionnaire des indisponibilités des chantiers en fonction du temps.
+
+- init_dict_limites_machines(
+    df_machines: pd.DataFrame,
+    df_sillon_dep: pd.DataFrame,
+    dernier_depart: float
+    ) -> dict :
+    Génère un dictionnaire des indisponibilités des machines en fonction du temps.
+
+- init_dict_limites_voies(df_chantiers: pd.DataFrame) -> dict :
+    Détermine le nombre de voies disponibles par chantier.
+
+- init_dict_nombre_max_agents_sur_roulement(df_roulement_agent: pd.DataFrame) -> dict :
+    Initialise un dictionnaire du nombre maximal d’agents disponibles sur chaque roulement.
+
+- init_dict_roulements_operants_sur_tache(df_roulement_agent: pd.DataFrame) -> dict :
+    Associe les roulements aux types de tâches qu'ils peuvent effectuer.
+
+- init_dicts_heure_debut_roulement(
+    df_roulement_agent: pd.DataFrame,
+    first_arr: int, last_dep: int
+    ) -> tuple :
+    Calcule les horaires de début des roulements et le nombre de cycles.
+
+- init_dicts_comp(df_roulement_agent: pd.DataFrame) -> tuple :
+    Génère les compétences des agents pour les différents chantiers.
+
+- init_dicts(...) -> tuple :
+    Regroupe et initialise l’ensemble des dictionnaires nécessaires à la modélisation.
+
+- lightning_mcqueen_parser(file_path: str) -> tuple :
+    Lit et analyse un fichier d'entrée pour en extraire les données nécessaires.
+
+- ecriture_donnees_sortie(...) -> bool :
+    Génère et écrit les résultats dans un fichier Excel.
+
+Dépendances :
+-------------
+- pandas
+- datetime
+- itertools
+- math
+- autres modules spécifiques du projet (ex : Constantes, Colonnes)
+"""
 
 import pandas as pd
 from datetime import datetime, timedelta

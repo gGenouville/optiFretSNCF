@@ -446,7 +446,7 @@ def init_dicts(
 # ----- parser -----#
 
 
-def parser(file_path: str):
+def lightning_mcqueen_parser(file_path: str):
     (
         _,
         df_sillons_arr,

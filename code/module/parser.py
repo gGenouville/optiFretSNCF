@@ -3,14 +3,14 @@
 import pandas as pd
 from datetime import datetime, timedelta
 from itertools import chain
-from constants import (
+from module.constants import (
     Constantes,
     Machines,
     Chantiers,
     Feuilles,
     Colonnes,
 )
-from tools import (
+from module.tools import (
     convert_hour_to_minutes,
     convertir_en_minutes,
     traitement_doublons,
@@ -30,6 +30,8 @@ def init_dfs(file_path: str):
     df_chantiers = df[Feuilles.CHANTIERS]
     df_machines = df[Feuilles.MACHINES]
 
+    df_roulement_agent = df[Feuilles.ROULEMENT_AGENTS]
+
     return (
         df,
         df_sil_arr,
@@ -37,6 +39,7 @@ def init_dfs(file_path: str):
         df_cor,
         df_chantiers,
         df_machines,
+        df_roulement_agent,
     )
 
 
@@ -74,16 +77,16 @@ def init_df_correspondances(df: pd.DataFrame) -> pd.DataFrame:
             input_df[Colonnes.DATE_DEPART], format="%d/%m/%Y", errors="coerce"
         ).dt.strftime("%d")
     )
-    d = {}
-    for departure_train_id in input_df[Colonnes.ID_TRAIN_DEPART]:
-        d[departure_train_id] = []
-    for arrival_train_id, departure_train_id in zip(
-        input_df[Colonnes.ID_TRAIN_ARRIVEE],
-        input_df[Colonnes.ID_TRAIN_DEPART],
-    ):
-        d[departure_train_id].append(arrival_train_id)
+    # d = {}
+    # for departure_train_id in input_df[Colonnes.ID_TRAIN_DEPART]:
+    #    d[departure_train_id] = []
+    # for arrival_train_id, departure_train_id in zip(
+    #    input_df[Colonnes.ID_TRAIN_ARRIVEE],
+    #    input_df[Colonnes.ID_TRAIN_DEPART],
+    # ):
+    #    d[departure_train_id].append(arrival_train_id)
 
-    return d
+    return input_df
 
 
 # ----- values ----- #
@@ -95,23 +98,33 @@ def skibidi_mondays(date: datetime) -> datetime:
     return date - delta
 
 
-def init_first_arr(df_sillons_arr: pd.Dataframe) -> datetime:
+def init_first_arr(df_sillons_arr: pd.DataFrame) -> datetime:
     df_sillons_arr["Datetime"] = pd.to_datetime(
-        df_sillons_arr["JDEP"].astype(str) + " " + df_sillons_arr["HDEP"].astype(str)
+        df_sillons_arr[Colonnes.SILLON_JARR].astype(str)
+        + " "
+        + df_sillons_arr[Colonnes.SILLON_HARR].astype(str)
     )
     return df_sillons_arr["Datetime"].min()
 
 
 def init_last_dep(df_sillons_dep: pd.DataFrame) -> datetime:
     df_sillons_dep["Datetime"] = pd.to_datetime(
-        df_sillons_dep["JDEP"].astype(str) + " " + df_sillons_dep["HDEP"].astype(str)
+        df_sillons_dep[Colonnes.SILLON_JDEP].astype(str)
+        + " "
+        + df_sillons_dep[Colonnes.SILLON_HDEP].astype(str)
     )
     return df_sillons_dep["Datetime"].max()
+
+
+def nombre_roulements(df_roulement_agent: pd.DataFrame) -> int:
+    count = df_roulement_agent[Colonnes.ROULEMENT].count()
+    return count
 
 
 def init_values(
     df_sillons_arr: pd.DataFrame,
     df_sillons_dep: pd.DataFrame,
+    df_roulement_agent: pd.DataFrame,
 ) -> tuple[float, float, datetime]:
     first_arr = init_first_arr(df_sillons_arr)
     last_dep = init_last_dep(df_sillons_dep)
@@ -121,7 +134,12 @@ def init_values(
     first_arr -= monday
     last_dep -= monday
 
-    return first_arr.total_seconds() / 60, last_dep.total_seconds() / 60, monday
+    return (
+        first_arr.total_seconds() / 60,
+        last_dep.total_seconds() / 60,
+        monday,
+        nombre_roulements(df_roulement_agent),
+    )
 
 
 # ----- dicts ----- #
@@ -170,22 +188,7 @@ def init_dict_t_d(df_sillons_dep: pd.DataFrame) -> dict:
 
 
 def init_dict_correspondances(df_correspondance: pd.DataFrame) -> dict:
-    input_df = df_correspondance.astype(str)
-    input_df[Colonnes.ID_TRAIN_ARRIVEE] = (
-        input_df[Colonnes.N_TRAIN_ARRIVEE]
-        + "_"
-        + pd.to_datetime(
-            input_df[Colonnes.DATE_ARRIVEE], format="%d/%m/%Y", errors="coerce"
-        ).dt.strftime("%d")
-    )
-
-    input_df[Colonnes.ID_TRAIN_DEPART] = (
-        input_df[Colonnes.N_TRAIN_DEPART]
-        + "_"
-        + pd.to_datetime(
-            input_df[Colonnes.DATE_DEPART], format="%d/%m/%Y", errors="coerce"
-        ).dt.strftime("%d")
-    )
+    input_df = df_correspondance
     d = {}
     for departure_train_id in input_df[Colonnes.ID_TRAIN_DEPART]:
         d[departure_train_id] = []
@@ -266,12 +269,53 @@ def init_dict_limites_voies(df_chantiers: pd.DataFrame) -> dict:
     return limites_chantiers_voies
 
 
+def init_dict_nombre_max_agents_sur_roulement(df_roulement_agent: pd.DataFrame) -> dict:
+    n_agent = {
+        r + 1: df_roulement_agent.at[r, Colonnes.NOMBRE_AGENTS]
+        for r in df_roulement_agent.index
+    }
+
+    return n_agent
+
+
+def init_dict_roulements_operants_sur_tache(df_roulement_agent: pd.DataFrame) -> dict:
+    roulements_operants_sur_m = {}
+    for m in [1, 2, 3]:
+        roulements_operants_sur_m[("arr", m)] = (
+            df_roulement_agent[
+                df_roulement_agent[Colonnes.CONNAISSANCES_CHANTIERS].str.contains(
+                    "REC", na=False
+                )
+            ].index
+            + 1
+        ).tolist()
+        roulements_operants_sur_m[("dep", m)] = (
+            df_roulement_agent[
+                df_roulement_agent[Colonnes.CONNAISSANCES_CHANTIERS].str.contains(
+                    "FOR", na=False
+                )
+            ].index
+            + 1
+        ).tolist()
+    for m in [4]:
+        roulements_operants_sur_m[("dep", m)] = (
+            df_roulement_agent[
+                df_roulement_agent[Colonnes.CONNAISSANCES_CHANTIERS].str.contains(
+                    "DEP", na=False
+                )
+            ].index
+            + 1
+        ).tolist()
+    return roulements_operants_sur_m
+
+
 def init_dicts(
     df_sillons_arr: pd.DataFrame,
     df_sillons_dep: pd.DataFrame,
     df_correspondance: pd.DataFrame,
     df_chantiers: pd.DataFrame,
     df_machines: pd.DataFrame,
+    df_roulement_agent: pd.DataFrame,
     first_arr: float,
     dernier_depart: float,
 ) -> tuple[
@@ -281,20 +325,8 @@ def init_dicts(
     dict,
     dict,
     dict,
+    dict,
 ]:
-    (
-        _,
-        df_sillons_arr,
-        df_sillons_dep,
-        df_correspondance,
-        df_chantiers,
-        df_machines,
-    ) = init_dfs(file_path)
-
-    first_arr, dernier_depart, monday = init_values(
-        df_sillons_arr,
-        df_sillons_dep,
-    )
     return (
         init_dict_t_a(df_sillons_arr),
         init_dict_t_d(df_sillons_dep),
@@ -310,6 +342,8 @@ def init_dicts(
             dernier_depart,
         ),
         init_dict_limites_voies(df_chantiers),
+        init_dict_nombre_max_agents_sur_roulement(df_roulement_agent),
+        init_dict_roulements_operants_sur_tache(df_roulement_agent),
     )
 
 
@@ -324,11 +358,11 @@ def parser(file_path: str):
         df_correspondance,
         df_chantiers,
         df_machines,
+        df_roulement_agent,
     ) = init_dfs(file_path)
 
-    first_arr, dernier_depart, monday = init_values(
-        df_sillons_arr,
-        df_sillons_dep,
+    first_arr, dernier_depart, monday, nb_roulements = init_values(
+        df_sillons_arr, df_sillons_dep, df_roulement_agent
     )
     (
         dict_t_a,
@@ -337,12 +371,15 @@ def parser(file_path: str):
         dict_limites_chantiers,
         dict_limites_machines,
         dict_limites_voies,
+        dict_max_agents,
+        dict_roulements_operants_sur_tache,
     ) = init_dicts(
         df_sillons_arr,
         df_sillons_dep,
         df_correspondance,
         df_chantiers,
         df_machines,
+        df_roulement_agent,
         first_arr,
         dernier_depart,
     )
@@ -351,18 +388,158 @@ def parser(file_path: str):
         first_arr,
         dernier_depart,
         monday,
+        nb_roulements,
+        #
         df_sillons_arr,
         df_sillons_dep,
         df_correspondance,
         df_chantiers,
         df_machines,
+        df_roulement_agent,
+        #
         dict_t_a,
         dict_t_d,
         dict_correspondances,
         dict_limites_chantiers,
         dict_limites_machines,
         dict_limites_voies,
+        dict_max_agents,
+        dict_roulements_operants_sur_tache,
     )
+
+
+# ----- writting files -----#
+
+
+def ecriture_donnees_sortie(
+    t_arr, t_dep, occupation_REC, occupation_FOR, occupation_DEP, x_date
+):
+    """
+    Traite les données pour les mettre dans une feuille de calcul de sortie au format standard.
+
+    Paramètres :
+    -----------
+    t_arr : dict
+        Variables de début des tâches d'arrivée.
+    t_dep: dict
+        Variables de début des tâches de départ.
+    occupation_REC : list
+        Occupation des voies du chantier de réception en fonction du temps.
+    occupation_REC : list
+        Occupation des voies du chantier de formation en fonction du temps.
+    occupation_DEP : list
+        Occupation des voies du chantier de départ en fonction du temps.
+    x_date : list
+        Horodatage des points des listes précédentes.
+
+    Retourne :
+    ---------
+    bool
+        True si les données sont écrites.
+    """
+    # Création des données de sortie
+    xl = (
+        [
+            {
+                "Id tâche": "DEB_"
+                + n_arr
+                + "#"
+                + (
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_arr.X)
+                ).strftime("%d/%m/%Y")
+                + "#A",
+                "Type de tâche": "DEB",
+                "Jour": (
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_arr.X)
+                ).strftime("%d/%m/%Y"),
+                "Heure de début": (
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_arr.X)
+                ).strftime("%H:%M"),
+                "Durée": 15,
+                "Sillon": n_arr
+                + "#"
+                + (
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_arr.X)
+                ).strftime("%d/%m/%Y")
+                + "#A",
+            }
+            for (m_arr, n_arr), var_arr in t_arr.items()
+            if m_arr == 3
+        ]
+        + [
+            {
+                "Id tâche": "FOR_"
+                + n_dep
+                + "#"
+                + (
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_dep.X)
+                ).strftime("%d/%m/%Y")
+                + "#D",
+                "Type de tâche": "FOR",
+                "Jour": (
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_dep.X)
+                ).strftime("%d/%m/%Y"),
+                "Heure de début": (
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_dep.X)
+                ).strftime("%H:%M"),
+                "Durée": 15,
+                "Sillon": n_dep
+                + "#"
+                + (
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_dep.X)
+                ).strftime("%d/%m/%Y")
+                + "#D",
+            }
+            for (m_dep, n_dep), var_dep in t_dep.items()
+            if m_dep == 1
+        ]
+        + [
+            {
+                "Id tâche": "DEG_"
+                + n_dep
+                + "#"
+                + (
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_dep.X)
+                ).strftime("%d/%m/%Y")
+                + "#D",
+                "Type de tâche": "DEG",
+                "Jour": (
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_dep.X)
+                ).strftime("%d/%m/%Y"),
+                "Heure de début": (
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_dep.X)
+                ).strftime("%H:%M"),
+                "Durée": 20,
+                "Sillon": n_dep
+                + "#"
+                + (
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_dep.X)
+                ).strftime("%d/%m/%Y")
+                + "#D",
+            }
+            for (m_dep, n_dep), var_dep in t_dep.items()
+            if m_dep == 3
+        ]
+    )
+
+    # Versement des données de sortie vers une trame de données
+    df_xl = pd.DataFrame(xl)
+
+    # Création des données d'occupation des voies de chantier
+    xl2 = {
+        "Horodatage": x_date,
+        "REC": occupation_REC,
+        "FOR": occupation_FOR,
+        "DEP": occupation_DEP,
+    }
+    # Versement des données d'occupation vers une trame de données
+    df_xl2 = pd.DataFrame(xl2)
+
+    # Versement des trames vers la feuilles de calcul
+    with pd.ExcelWriter("sortie_jalon2.xlsx", engine="openpyxl") as writer:
+        df_xl.to_excel(writer, sheet_name="Taches machine", index=False)
+        df_xl2.to_excel(writer, sheet_name="Occupation voie chantier", index=False)
+    return True
 
 
 # mes enormes couillles velues balancee de facon menacante sur la table

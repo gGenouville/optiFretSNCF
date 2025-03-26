@@ -49,17 +49,6 @@ def init_contraintes(
     premier_wagon: dict,
     temps_max: int,
     temps_min: int,
-    nombre_roulements,
-    nombre_cycles_agents,
-    nombre_agents,
-    max_agents_sur_roulement,
-    equip,
-    h_deb,
-    who_arr,
-    who_dep,
-    comp_arr,
-    comp_dep,
-    nb_cycle_jour,
 ) -> bool:
     """
     Initialise les contraintes du modèle d'optimisation.
@@ -169,14 +158,77 @@ def init_contraintes(
         model, t_arr, dict_correspondances, liste_id_train_depart, premier_wagon
     )
 
-    contrainte_nombre_max_agents(
-        model,
-        nombre_roulements,
-        nombre_cycles_agents,
-        nombre_agents,
-        max_agents_sur_roulement,
-        nb_cycle_jour,
-    )
+    return True
+
+def init_contraintes2(
+    model: grb.Model,
+    t_arr: dict,
+    liste_id_train_arrivee: list,
+    t_dep: dict,
+    liste_id_train_depart: list,
+    nombre_roulements,
+    nombre_cycles_agents,
+    nombre_agents,
+    max_agents_sur_roulement,
+    equip,
+    h_deb,
+    who_arr,
+    who_dep,
+    comp_arr,
+    comp_dep,
+    nb_cycle_jour,
+) -> bool:
+    """
+    Initialise les contraintes du modèle d'optimisation.
+
+    Paramètres :
+    -----------
+    model : grb.Model
+        Modèle d'optimisation Gurobi.
+    t_arr : dict
+        Variables de début des tâches d'arrivée.
+    t_a : dict
+        Temps d'arrivée des trains en gare.
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+    t_dep : dict
+        Variables de début des tâches de départ.
+    t_d : dict
+        Temps de départ des trains.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+    dict_correspondances : dict
+        Correspondances entre trains d'arrivée et de départ.
+    file : str
+        Nom du fichier de configuration.
+    id_file : int
+        Identifiant du fichier.
+    limites_voies : dict
+        Nombre de voies utilisables par chantier.
+    is_present : dict
+        Présence ou non du train id_train sur un chantier.
+    premier_wagon : dict
+        Variables de temps du début de la première tâche de débranchement
+        sur les trains d'arrivée contenant des wagons du train de départ
+    temps_min : int
+        Temps d'arrivée du premier train.
+    temps_max : int
+        Temps de départ du dernier train.
+
+    Retourne :
+    ---------
+    bool
+        Toujours True après l'initialisation des contraintes.
+    """
+
+    # contrainte_nombre_max_agents(
+    #     model,
+    #     nombre_roulements,
+    #     nombre_cycles_agents,
+    #     nombre_agents,
+    #     max_agents_sur_roulement,
+    #     nb_cycle_jour,
+    # )
 
     unicite_roulement_et_cycle(
        model,
@@ -215,18 +267,18 @@ def init_contraintes(
         t_arr,
         t_dep,
     )
-    contrainte_unicite_who_cycle(
-        model,
-        equip,
-        liste_id_train_arrivee,
-        liste_id_train_depart,
-        nombre_cycles_agents,
-        who_arr,
-        who_dep,
-        h_deb,
-        t_arr,
-        t_dep,
-    )
+    # contrainte_unicite_who_cycle(
+    #     model,
+    #     equip,
+    #     liste_id_train_arrivee,
+    #     liste_id_train_depart,
+    #     nombre_cycles_agents,
+    #     who_arr,
+    #     who_dep,
+    #     h_deb,
+    #     t_arr,
+    #     t_dep,
+    # )
 
     return True
 

@@ -22,7 +22,7 @@ init_objectif : Crée la variable à minimiser de la fonction object ainsi que s
 
 import gurobipy as grb
 
-from module.contraintes2 import init_contraintes
+from module.contraintes2 import init_contraintes, init_contraintes2
 from module.utils2 import Chantiers, Taches
 
 
@@ -37,15 +37,6 @@ def init_model(
     limites_voies: dict,
     temps_max: int,
     temps_min: int,
-    nb_cycles_agents,
-    heure_debut_roulement,
-    nombre_roulements,
-    equip,
-    max_agents_sur_roulement,
-    h_deb,
-    comp_arr,
-    comp_dep,
-    nb_cycle_jour
 ) -> tuple[grb.Model, dict, dict, dict]:
     """
     Initialise le modèle d'optimisation avec les variables et contraintes.
@@ -80,20 +71,14 @@ def init_model(
     tuple
         Variables du modèle (t_arr, t_dep).
     """
-    model = grb.Model("SNCF JALON 1")
+    model = grb.Model("SNCF JALON 3.1")
 
-    t_arr, t_dep, is_present, premier_wagon, who_arr, who_dep, nombre_agents = init_variables(
+    t_arr, t_dep, is_present, premier_wagon = init_variables(
         model,
         liste_id_train_arrivee,
         liste_id_train_depart,
         temps_min,
         temps_max,
-        file,
-        nb_cycles_agents,
-        heure_debut_roulement,
-        nombre_roulements,
-        max_agents_sur_roulement,
-        equip,
     )
 
     init_contraintes(
@@ -112,6 +97,92 @@ def init_model(
         premier_wagon,
         temps_max,
         temps_min,
+    )
+
+    init_objectif(
+        model,
+        is_present,
+        liste_id_train_depart,
+        temps_min,
+        temps_max,
+        t_arr,
+        t_dep,
+        liste_id_train_arrivee
+    )
+
+    # Choix d'un paramétrage d'affichage
+    model.params.outputflag = 0  # mode muet
+    # Mise à jour du modèle
+    model.update()
+
+    return model, t_arr, t_dep, is_present
+
+def init_model2(
+    liste_id_train_arrivee: list,
+    liste_id_train_depart: list,
+    nb_cycles_agents,
+    h_deb,
+    nombre_roulements,
+    equip,
+    max_agents_sur_roulement,
+    comp_arr,
+    comp_dep,
+    nb_cycle_jour,
+    t_arr,
+    t_dep
+) -> tuple[grb.Model, dict, dict, dict]:
+    """
+    Initialise le modèle d'optimisation avec les variables et contraintes.
+
+    Paramètres :
+    -----------
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+    t_a : dict
+        Temps d'arrivée à la gare de fret des trains.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+    t_d : dict
+        Temps de départ de la gare de fret des trains.
+    dict_correspondances : dict
+        Correspondances entre trains d'arrivée et de départ.
+    file : str
+        Nom du fichier de configuration.
+    id_file : int
+        Identifiant du fichier.
+    limites_voies : dict
+        Nombre de voies utilisables par chantier.
+    temps_min : int
+        Temps d'arrivée du premier train.
+    temps_max : int
+        Temps de départ du dernier train.
+
+    Retourne :
+    ---------
+    grb.Model
+        Modèle d'optimisation Gurobi initialisé.
+    tuple
+        Variables du modèle (t_arr, t_dep).
+    """
+    model2 = grb.Model("SNCF JALON 3.2")
+
+    who_arr, who_dep, nombre_agents = init_variables2(
+        model2,
+        liste_id_train_arrivee,
+        liste_id_train_depart,
+        nb_cycles_agents,
+        h_deb,
+        nombre_roulements,
+        max_agents_sur_roulement,
+        equip,
+    )
+
+    init_contraintes2(
+        model2,
+        t_arr,
+        liste_id_train_arrivee,
+        t_dep,
+        liste_id_train_depart,
         nombre_roulements,
         nb_cycles_agents,
         nombre_agents,
@@ -125,20 +196,19 @@ def init_model(
         nb_cycle_jour
     )
 
-    init_objectif(
-        model,
+    init_objectif2(
+        model2,
         nombre_agents,
         nombre_roulements,
         nb_cycles_agents
     )
 
     # Choix d'un paramétrage d'affichage
-    model.params.outputflag = 0  # mode muet
+    model2.params.outputflag = 0  # mode muet
     # Mise à jour du modèle
-    model.update()
+    model2.update()
 
-    return model, t_arr, t_dep, is_present, who_arr, who_dep
-
+    return model2, who_arr, who_dep, nombre_agents
 
 def init_variables(
     m: grb.Model,
@@ -146,15 +216,9 @@ def init_variables(
     liste_id_train_depart: list,
     temps_min: int,
     temps_max: int,
-    file,
-    nb_cycles_agents,
-    heure_debut_roulement,
-    nombre_roulements,
-    roulements_agents,
-    equip,
 ) -> tuple[dict, dict, dict, dict]:
     """
-    Initialise les variables de début des tâches pour les trains,
+    Initialise les variables de début des tâches pour les trains, 
     de présence sur un chantier de premier débranchement de wagon.
 
     Paramètres :
@@ -185,19 +249,58 @@ def init_variables(
         m, liste_id_train_arrivee, liste_id_train_depart, temps_min, temps_max
     )
     premier_wagon = variable_premier_wagon(m, liste_id_train_depart)
+
+    return t_arr, t_dep, is_present, premier_wagon
+
+def init_variables2(
+    m: grb.Model,
+    liste_id_train_arrivee: list,
+    liste_id_train_depart: list,
+    nb_cycles_agents,
+    h_deb,
+    nombre_roulements,
+    roulements_agents,
+    equip,
+) -> tuple[dict, dict, dict, dict]:
+    """
+    Initialise les variables de début des tâches pour les trains,
+    de présence sur un chantier de premier débranchement de wagon.
+
+    Paramètres :
+    -----------
+    m : grb.Model
+        Modèle d'optimisation Gurobi.
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+    temps_min : int
+        Temps d'arrivée du premier train.
+    temps_max : int
+        Temps de départ du dernier train.
+
+    Retourne :
+    ---------
+    tuple[dict, dict, dict, dict]
+        - Variables des débuts de tâches d'arrivée.
+        - Variables des débuts de tâches de départ.
+        - Variables de présence dans les voies.
+        - Variables de début de la première tâche de
+            débranchement sur les wagons du train de départ.
+    """
     who_arr, who_dep = variable_who(
         m,
         nb_cycles_agents,
         liste_id_train_arrivee,
         liste_id_train_depart,
         equip,
-        heure_debut_roulement,
+        h_deb,
     )
     nb_agents = variable_agents(
         m, nombre_roulements, nb_cycles_agents, roulements_agents
     )
 
-    return t_arr, t_dep, is_present, premier_wagon, who_arr, who_dep, nb_agents
+    return who_arr, who_dep, nb_agents
 
 
 def variables_debut_tache_arrive(
@@ -385,8 +488,51 @@ def variable_who(
     }
     return who_arr, who_dep
 
-
 def init_objectif(
+    model: grb.Model,
+    is_present: dict,
+    liste_id_train_depart: dict,
+    temps_min: int,
+    temps_max: int,
+    t_arr: dict,
+    t_dep: dict,
+    liste_id_train_arrivee : list
+) -> bool:
+    """
+    Crée la variable à minimiser de la fonction object ainsi que ses contraintes.
+
+    Paramètres :
+    ------------
+    model : grb.Model
+        Modèle Gurobi pour ajouter les contraintes.
+    is_present : dict
+        Présence ou non du train id_train sur un chantier.
+    liste_id_train_depart : list
+        Identifiants des trains de départ.
+    temps_min : int
+        Temps d'arrivée du premier train.
+    temps_max : int
+        Temps de départ du dernier train.
+
+    Retourne :
+    ----------
+    bool
+        True si la fonction objectif est ajoutée.
+    """
+    max_FOR = model.addVar(vtype=grb.GRB.INTEGER, lb=0, name="max_FOR")
+    for t in range(temps_min, temps_max + 1):
+        model.addConstr(
+            max_FOR
+            >= grb.quicksum(
+                is_present[Chantiers.FOR][(id_train, t)]
+                for id_train in liste_id_train_depart
+            )
+        )
+    model.setObjective(max_FOR+0.00001/temps_max*(grb.quicksum([t_arr[m,id_train_arr] for m in range(1,4) for id_train_arr in liste_id_train_arrivee])/(3*len(liste_id_train_arrivee))-grb.quicksum([t_dep[m,id_train_dep] for m in range(1,4) for id_train_dep in liste_id_train_depart])/(3*len(liste_id_train_depart))), grb.GRB.MINIMIZE)
+
+    return True
+
+def init_objectif2(
     model: grb.Model,
     nombre_agents: dict,
     nombre_roulements: int,

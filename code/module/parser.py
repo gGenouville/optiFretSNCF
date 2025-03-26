@@ -420,6 +420,26 @@ def init_dict_limites_machines(
     df_sillon_dep: pd.DataFrame,
     dernier_depart: float,
 ) -> dict:
+    """
+    Crée un dictionnaire des limites de disponibilité des machines en minutes.
+
+    Cette fonction convertit les indisponibilités des machines en minutes et
+    les organise dans un dictionnaire, où chaque clé correspond à un type
+    de machine et la valeur est la liste des limites de disponibilité.
+
+    Args:
+        df_machines (pd.DataFrame): DataFrame contenant les informations des
+                                    machines, y compris les indisponibilités.
+        df_sillon_dep (pd.DataFrame): DataFrame contenant les sillons de départ
+                                      pour le traitement des données.
+        dernier_depart (float): Heure du dernier départ en minutes depuis
+                                la référence.
+
+    Returns:
+        dict: Dictionnaire des limites de disponibilité des machines, avec des
+              clés correspondant aux types de machines (DEB, FOR, DEG) et des
+              valeurs représentant les listes de limites de disponibilité.
+    """
     indisponibilites_machines = df_machines[Colonnes.INDISPONIBILITE_MINUTES] = (
         df_machines[Colonnes.INDISPONIBILITE]
         .astype(str)
@@ -443,8 +463,21 @@ def init_dict_limites_machines(
 
 
 def init_dict_limites_voies(df_chantiers: pd.DataFrame) -> dict:
-    # df_chantiers = pd.read_excel(file, sheet_name=Feuilles.CHANTIERS)
+    """
+    Crée un dictionnaire des limites de voies disponibles pour chaque chantier.
 
+    Cette fonction extrait le nombre de voies disponibles pour chaque chantier
+    et les stocke dans un dictionnaire où chaque clé représente un type de
+    chantier et la valeur correspondante est le nombre de voies disponibles.
+
+    Args:
+        df_chantiers (pd.DataFrame): DataFrame contenant les informations sur
+                                     les chantiers, y compris le nombre de voies.
+
+    Returns:
+        dict: Dictionnaire avec les types de chantiers (REC, FOR, DEP) comme
+              clés et le nombre de voies disponibles comme valeurs.
+    """
     limites_chantiers_voies = {
         Chantiers.REC: int(df_chantiers[Colonnes.NOMBRE_VOIES].astype(str)[0]),
         Chantiers.FOR: int(df_chantiers[Colonnes.NOMBRE_VOIES].astype(str)[1]),
@@ -453,7 +486,24 @@ def init_dict_limites_voies(df_chantiers: pd.DataFrame) -> dict:
     return limites_chantiers_voies
 
 
-def init_dict_nombre_max_agents_sur_roulement(df_roulement_agent: pd.DataFrame) -> dict:
+def init_dict_nombre_max_agents_sur_roulement(
+    df_roulement_agent: pd.DataFrame,
+) -> dict:
+    """
+    Crée un dictionnaire du nombre maximal d'agents par roulement.
+
+    Cette fonction extrait le nombre d'agents associés à chaque roulement et
+    les stocke dans un dictionnaire où chaque clé représente un roulement et
+    la valeur correspondante est le nombre maximal d'agents.
+
+    Args:
+        df_roulement_agent (pd.DataFrame): DataFrame contenant les informations
+                                           sur les roulements des agents.
+
+    Returns:
+        dict: Dictionnaire avec les numéros de roulement comme clés et le
+              nombre maximal d'agents comme valeurs.
+    """
     n_agent = {
         r + 1: df_roulement_agent.at[r, Colonnes.NOMBRE_AGENTS]
         for r in df_roulement_agent.index
@@ -462,7 +512,24 @@ def init_dict_nombre_max_agents_sur_roulement(df_roulement_agent: pd.DataFrame) 
     return n_agent
 
 
-def init_dict_roulements_operants_sur_tache(df_roulement_agent: pd.DataFrame) -> dict:
+def init_dict_roulements_operants_sur_tache(
+    df_roulement_agent: pd.DataFrame,
+) -> dict:
+    """
+    Crée un dictionnaire des roulements d'agents opérant sur chaque tâche.
+
+    Cette fonction identifie les roulements d'agents ayant les connaissances
+    nécessaires pour travailler sur différents chantiers et les organise dans
+    un dictionnaire.
+
+    Args:
+        df_roulement_agent (pd.DataFrame): DataFrame contenant les roulements
+                                           des agents et leurs compétences.
+
+    Returns:
+        dict: Dictionnaire où les clés sont des tuples (tâche, machine) et les
+              valeurs sont des listes de roulements pouvant opérer sur ces tâches.
+    """
     roulements_operants_sur_m = {}
     for m in [1, 2, 3]:
         roulements_operants_sur_m[("arr", m)] = (
@@ -502,6 +569,25 @@ def init_dicts_heure_debut_roulement(
     dict,
     dict,
 ]:
+    """
+    Initialise les dictionnaires des heures de début des roulements.
+
+    Cette fonction crée plusieurs dictionnaires permettant de gérer les
+    horaires des agents en fonction de leur disponibilité et des cycles
+    horaires définis.
+
+    Args:
+        df_roulement_agent (pd.DataFrame): DataFrame contenant les informations
+                                           sur les roulements des agents.
+        first_arr (int): Heure d'arrivée du premier train en minutes.
+        last_dep (int): Heure de départ du dernier train en minutes.
+
+    Returns:
+        tuple:
+            - dict h_deb: Heure de début des cycles par roulement et index.
+            - dict nb_cycles_agents: Nombre total de cycles par agent.
+            - dict nb_cycle_jour: Nombre de cycles quotidiens par agent.
+    """
     nb_roulements = df_roulement_agent.shape[0]
 
     delta = last_dep - first_arr
@@ -547,16 +633,24 @@ def init_dicts_heure_debut_roulement(
 
 
 def init_dicts_comp(df_roulement_agent: pd.DataFrame) -> tuple[dict, dict]:
-    def extract_category(value):
-        categories = []
-        if "WPY_REC" in value:
-            categories.append("REC")
-        if "WPY_FOR" in value:
-            categories.append("FOR")
-        if "WPY_DEP" in value:
-            categories.append("DEP")
-        return categories
+    """
+    Initialise les dictionnaires des compétences des agents par roulement.
 
+    Cette fonction analyse les connaissances des agents sur les chantiers et
+    les classe en deux catégories : compétences pour l'arrivée et pour le départ.
+
+    Args:
+        df_roulement_agent (pd.DataFrame): DataFrame contenant les roulements
+                                           et compétences des agents.
+
+    Returns:
+        tuple:
+            - dict comp_arr: Dictionnaire des compétences des agents pour
+              l'arrivée, avec les roulements comme clés et les tâches associées
+              comme valeurs.
+            - dict comp_dep: Dictionnaire des compétences des agents pour
+              le départ, structuré de la même manière.
+    """
     comp_arr = {}
     comp_dep = {}
 
@@ -595,6 +689,36 @@ def init_dicts(
     dict,
     dict,
 ]:
+    """
+    Initialise et retourne plusieurs dictionnaires utiles pour la gestion
+    des sillons, chantiers, machines et roulements d'agents.
+
+    Args:
+        df_sillons_arr (pd.DataFrame): Données des sillons d'arrivée.
+        df_sillons_dep (pd.DataFrame): Données des sillons de départ.
+        df_correspondance (pd.DataFrame): Données des correspondances.
+        df_chantiers (pd.DataFrame): Données des chantiers.
+        df_machines (pd.DataFrame): Données des machines.
+        df_roulement_agent (pd.DataFrame): Données des roulements d'agents.
+        first_arr (float): Heure du premier train en minutes.
+        dernier_depart (float): Heure du dernier départ en minutes.
+
+    Returns:
+        tuple:
+            - dict t_a: Heures d'arrivée des trains.
+            - dict t_d: Heures de départ des trains.
+            - dict correspondances: Correspondances entre trains.
+            - dict limites_chantiers: Indisponibilités des chantiers.
+            - dict limites_machines: Indisponibilités des machines.
+            - dict limites_voies: Nombre de voies disponibles.
+            - dict max_agents: Nombre max d'agents par roulement.
+            - dict roulements_taches: Roulements opérants sur tâches.
+            - dict h_deb: Heures de début des cycles d'agents.
+            - dict nb_cycles_agents: Nombre total de cycles par agent.
+            - dict nb_cycle_jour: Nombre de cycles quotidiens par agent.
+            - dict comp_arr: Compétences agents pour l'arrivée.
+            - dict comp_dep: Compétences agents pour le départ.
+    """
     h_deb, nb_cycles_agents, nb_cycle_jour = init_dicts_heure_debut_roulement(
         df_roulement_agent,
         first_arr,
@@ -630,6 +754,38 @@ def init_dicts(
 
 
 def lightning_mcqueen_parser(file_path: str):
+    """
+    Parse le fichier source et initialise les données nécessaires à l'analyse.
+
+    Args:
+        file_path (str): Chemin du fichier contenant les données.
+
+    Returns:
+        tuple: Contient les valeurs suivantes :
+            - first_arr (float): Heure du premier train en minutes.
+            - dernier_depart (float): Heure du dernier départ en minutes.
+            - monday (datetime): Date du lundi de référence.
+            - nb_roulements (int): Nombre total de roulements.
+            - df_sillons_arr (pd.DataFrame): Données des sillons d'arrivée.
+            - df_sillons_dep (pd.DataFrame): Données des sillons de départ.
+            - df_correspondance (pd.DataFrame): Données des correspondances.
+            - df_chantiers (pd.DataFrame): Données des chantiers.
+            - df_machines (pd.DataFrame): Données des machines.
+            - df_roulement_agent (pd.DataFrame): Données des roulements d'agents.
+            - dict_t_a (dict): Heures d'arrivée des trains.
+            - dict_t_d (dict): Heures de départ des trains.
+            - dict_correspondances (dict): Correspondances entre trains.
+            - dict_limites_chantiers (dict): Indisponibilités des chantiers.
+            - dict_limites_machines (dict): Indisponibilités des machines.
+            - dict_limites_voies (dict): Nombre de voies disponibles.
+            - dict_max_agents (dict): Nombre max d'agents par roulement.
+            - dict_roulements_operants_sur_tache (dict): Roulements par tâche.
+            - dict_h_deb (dict): Heures de début des cycles d'agents.
+            - dict_nb_cycles_agents (dict): Nombre total de cycles par agent.
+            - dict_nb_cycle_jour (dict): Nombre de cycles quotidiens par agent.
+            - dict_comp_arr (dict): Compétences agents pour l'arrivée.
+            - dict_comp_dep (dict): Compétences agents pour le départ.
+    """
     (
         _,
         df_sillons_arr,
@@ -704,27 +860,31 @@ def ecriture_donnees_sortie(
     t_arr, t_dep, occupation_REC, occupation_FOR, occupation_DEP, x_date
 ):
     """
-    Traite les données pour les mettre dans une feuille de calcul de sortie au format standard.
+    Génère et écrit les données de sortie dans un fichier Excel.
+
+    Cette fonction traite les horaires des tâches d'arrivée et de départ,
+    ainsi que l'occupation des voies des chantiers, puis exporte les données
+    dans un fichier Excel au format standard.
 
     Paramètres :
     -----------
     t_arr : dict
-        Variables de début des tâches d'arrivée.
-    t_dep: dict
-        Variables de début des tâches de départ.
+        Dictionnaire des horaires de début des tâches d'arrivée.
+    t_dep : dict
+        Dictionnaire des horaires de début des tâches de départ.
     occupation_REC : list
         Occupation des voies du chantier de réception en fonction du temps.
-    occupation_REC : list
+    occupation_FOR : list
         Occupation des voies du chantier de formation en fonction du temps.
     occupation_DEP : list
         Occupation des voies du chantier de départ en fonction du temps.
     x_date : list
-        Horodatage des points des listes précédentes.
+        Liste des horodatages associés aux points des listes précédentes.
 
-    Retourne :
-    ---------
+    Retour :
+    -------
     bool
-        True si les données sont écrites.
+        Retourne True si les données sont correctement écrites dans le fichier Excel.
     """
     # Création des données de sortie
     xl = (
@@ -829,6 +989,3 @@ def ecriture_donnees_sortie(
         df_xl.to_excel(writer, sheet_name="Taches machine", index=False)
         df_xl2.to_excel(writer, sheet_name="Occupation voie chantier", index=False)
     return True
-
-
-#

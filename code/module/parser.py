@@ -3,6 +3,7 @@
 import pandas as pd
 from datetime import datetime, timedelta
 from itertools import chain
+from math import ceil
 from module.constants import (
     Constantes,
     Machines,
@@ -309,6 +310,87 @@ def init_dict_roulements_operants_sur_tache(df_roulement_agent: pd.DataFrame) ->
     return roulements_operants_sur_m
 
 
+def init_dicts_heure_debut_roulement(
+    df_roulement_agent: pd.DataFrame,
+    first_arr: int,
+    last_dep: int,
+) -> tuple[
+    dict,
+    dict,
+    dict,
+]:
+    nb_roulements = df_roulement_agent.shape[0]
+
+    delta = last_dep - first_arr
+    delta_jours = ceil(delta / (4 * 24))
+
+    jour_semaine_disponibilite = {
+        i + 1: [int(x) for x in str(row).split(";")]
+        for i, row in enumerate(df_roulement_agent["Jours de la semaine"].dropna())
+    }
+
+    h_deb_jour = {
+        i + 1: sorted(
+            [
+                timedelta(hours=int(x[:2]), minutes=int(x[3:5]))
+                for x in str(row).split(";")
+            ]
+        )
+        for i, row in enumerate(df_roulement_agent["Cycles horaires"].dropna())
+    }
+
+    nb_cycle_jour = {r: len(h_deb_jour[r]) for r in h_deb_jour}
+
+    jour_de_la_semaine = Constantes.BASE_TIME
+    dernier_jour_de_la_semaine = jour_de_la_semaine + timedelta(days=delta_jours)
+
+    h_deb0 = {i + 1: [] for i in range(nb_roulements)}
+
+    while jour_de_la_semaine <= dernier_jour_de_la_semaine:
+        for r in range(1, nb_roulements + 1):
+            if (jour_de_la_semaine.weekday()) % 7 + 1 in jour_semaine_disponibilite[r]:
+                h_deb0[r] += [jour_de_la_semaine + t for t in h_deb_jour[r]]
+        jour_de_la_semaine += timedelta(days=1)
+
+    nb_cycles_agents = {r: len(h_deb0[r]) for r in h_deb0}
+
+    h_deb = {
+        (r, k + 1): int((h_deb0[r][k] - Constantes.BASE_TIME).total_seconds() / 60)
+        for r in range(1, nb_roulements + 1)
+        for k in range(nb_cycles_agents[r])
+    }
+
+    return h_deb, nb_cycles_agents, nb_cycle_jour
+
+
+def init_dicts_comp(df_roulement_agent: pd.DataFrame) -> tuple[dict, dict]:
+    def extract_category(value):
+        categories = []
+        if "WPY_REC" in value:
+            categories.append("REC")
+        if "WPY_FOR" in value:
+            categories.append("FOR")
+        if "WPY_DEP" in value:
+            categories.append("DEP")
+        return categories
+
+    comp_arr = {}
+    comp_dep = {}
+
+    for r in range(1, len(df_roulement_agent) + 1):
+        comp_arr[r] = []
+        comp_dep[r] = []
+        value = str(df_roulement_agent.loc[r - 1, "Connaissances chantiers"])
+        if "WPY_REC" in value:
+            comp_arr[r] += [1, 2, 3]
+        if "WPY_FOR" in value:
+            comp_dep[r] += [1, 2, 3]
+        if "WPY_DEP" in value:
+            comp_dep[r] += [4]
+
+    return comp_arr, comp_dep
+
+
 def init_dicts(
     df_sillons_arr: pd.DataFrame,
     df_sillons_dep: pd.DataFrame,
@@ -326,7 +408,16 @@ def init_dicts(
     dict,
     dict,
     dict,
+    dict,
+    dict,
+    dict,
 ]:
+    h_deb, nb_cycles_agents, nb_cycle_jour = init_dicts_heure_debut_roulement(
+        df_roulement_agent,
+        first_arr,
+        dernier_depart,
+    )
+    comp_arr, comp_dep = init_dicts_comp(df_roulement_agent)
     return (
         init_dict_t_a(df_sillons_arr),
         init_dict_t_d(df_sillons_dep),
@@ -344,6 +435,11 @@ def init_dicts(
         init_dict_limites_voies(df_chantiers),
         init_dict_nombre_max_agents_sur_roulement(df_roulement_agent),
         init_dict_roulements_operants_sur_tache(df_roulement_agent),
+        h_deb,
+        nb_cycles_agents,
+        nb_cycle_jour,
+        comp_arr,
+        comp_dep,
     )
 
 
@@ -373,6 +469,11 @@ def parser(file_path: str):
         dict_limites_voies,
         dict_max_agents,
         dict_roulements_operants_sur_tache,
+        dict_h_deb,
+        dict_nb_cycles_agents,
+        dict_nb_cycle_jour,
+        dict_comp_arr,
+        dict_comp_dep,
     ) = init_dicts(
         df_sillons_arr,
         df_sillons_dep,
@@ -405,6 +506,11 @@ def parser(file_path: str):
         dict_limites_voies,
         dict_max_agents,
         dict_roulements_operants_sur_tache,
+        dict_h_deb,
+        dict_nb_cycles_agents,
+        dict_nb_cycle_jour,
+        dict_comp_arr,
+        dict_comp_dep,
     )
 
 
@@ -444,23 +550,23 @@ def ecriture_donnees_sortie(
                 "Id tâche": "DEB_"
                 + n_arr
                 + "#"
-                + (
-                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_arr.X)
-                ).strftime("%d/%m/%Y")
+                + (Constantes.BASE_TIME + timedelta(minutes=var_arr.X)).strftime(
+                    "%d/%m/%Y"
+                )
                 + "#A",
                 "Type de tâche": "DEB",
-                "Jour": (
-                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_arr.X)
-                ).strftime("%d/%m/%Y"),
+                "Jour": (Constantes.BASE_TIME + timedelta(minutes=var_arr.X)).strftime(
+                    "%d/%m/%Y"
+                ),
                 "Heure de début": (
-                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_arr.X)
+                    Constantes.BASE_TIME + timedelta(minutes=var_arr.X)
                 ).strftime("%H:%M"),
                 "Durée": 15,
                 "Sillon": n_arr
                 + "#"
-                + (
-                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_arr.X)
-                ).strftime("%d/%m/%Y")
+                + (Constantes.BASE_TIME + timedelta(minutes=var_arr.X)).strftime(
+                    "%d/%m/%Y"
+                )
                 + "#A",
             }
             for (m_arr, n_arr), var_arr in t_arr.items()
@@ -471,23 +577,23 @@ def ecriture_donnees_sortie(
                 "Id tâche": "FOR_"
                 + n_dep
                 + "#"
-                + (
-                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_dep.X)
-                ).strftime("%d/%m/%Y")
+                + (Constantes.BASE_TIME + timedelta(minutes=var_dep.X)).strftime(
+                    "%d/%m/%Y"
+                )
                 + "#D",
                 "Type de tâche": "FOR",
-                "Jour": (
-                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_dep.X)
-                ).strftime("%d/%m/%Y"),
+                "Jour": (Constantes.BASE_TIME + timedelta(minutes=var_dep.X)).strftime(
+                    "%d/%m/%Y"
+                ),
                 "Heure de début": (
-                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_dep.X)
+                    Constantes.BASE_TIME + timedelta(minutes=var_dep.X)
                 ).strftime("%H:%M"),
                 "Durée": 15,
                 "Sillon": n_dep
                 + "#"
-                + (
-                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_dep.X)
-                ).strftime("%d/%m/%Y")
+                + (Constantes.BASE_TIME + timedelta(minutes=var_dep.X)).strftime(
+                    "%d/%m/%Y"
+                )
                 + "#D",
             }
             for (m_dep, n_dep), var_dep in t_dep.items()
@@ -498,23 +604,23 @@ def ecriture_donnees_sortie(
                 "Id tâche": "DEG_"
                 + n_dep
                 + "#"
-                + (
-                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_dep.X)
-                ).strftime("%d/%m/%Y")
+                + (Constantes.BASE_TIME + timedelta(minutes=var_dep.X)).strftime(
+                    "%d/%m/%Y"
+                )
                 + "#D",
                 "Type de tâche": "DEG",
-                "Jour": (
-                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_dep.X)
-                ).strftime("%d/%m/%Y"),
+                "Jour": (Constantes.BASE_TIME + timedelta(minutes=var_dep.X)).strftime(
+                    "%d/%m/%Y"
+                ),
                 "Heure de début": (
-                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_dep.X)
+                    Constantes.BASE_TIME + timedelta(minutes=var_dep.X)
                 ).strftime("%H:%M"),
                 "Durée": 20,
                 "Sillon": n_dep
                 + "#"
-                + (
-                    Constantes.BASE_TIME + datetime.timedelta(minutes=var_dep.X)
-                ).strftime("%d/%m/%Y")
+                + (Constantes.BASE_TIME + timedelta(minutes=var_dep.X)).strftime(
+                    "%d/%m/%Y"
+                )
                 + "#D",
             }
             for (m_dep, n_dep), var_dep in t_dep.items()
@@ -542,4 +648,4 @@ def ecriture_donnees_sortie(
     return True
 
 
-# mes enormes couillles velues balancee de facon menacante sur la table
+#

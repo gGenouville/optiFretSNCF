@@ -23,7 +23,7 @@ init_objectif : Crée la variable à minimiser de la fonction object ainsi que s
 import gurobipy as grb
 
 from module.contraintes2 import init_contraintes
-from module.utils2 import Chantiers, Taches
+from module.constants import Chantiers, Taches
 
 
 def init_model(

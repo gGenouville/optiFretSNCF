@@ -230,8 +230,7 @@ def read_sillon(file: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     df_sillons_arr = pd.read_excel(
         file, sheet_name=Feuilles.SILLONS_ARRIVEE
     )  # Arrivées
-    df_sillons_dep = pd.read_excel(
-        file, sheet_name=Feuilles.SILLONS_DEPART)  # Départs
+    df_sillons_dep = pd.read_excel(file, sheet_name=Feuilles.SILLONS_DEPART)  # Départs
 
     # Conversion des dates en datetime64
     df_sillons_arr[Colonnes.SILLON_JARR] = pd.to_datetime(
@@ -296,8 +295,7 @@ def init_t_a(df_sillons_arr: pd.DataFrame, id_file: int) -> dict:
         if pd.notna(date_arr) and heure_arr is not None:
             # Nombre de jours depuis le 08/08
             days_since_ref = (date_arr - Constantes.BASE_TIME).days
-            minutes_since_ref = (days_since_ref * 1440) + \
-                heure_arr  # Ajout des minutes
+            minutes_since_ref = (days_since_ref * 1440) + heure_arr  # Ajout des minutes
 
             # Création d'un ID unique : Train_ID_Date, car certains trains portant le même ID passent sur des jours différents
             train_id_unique = f"{train_id}_{date_arr.strftime('%d')}"
@@ -305,8 +303,7 @@ def init_t_a(df_sillons_arr: pd.DataFrame, id_file: int) -> dict:
             t_a[train_id_unique] = minutes_since_ref
         # Pour résoudre manuellement le problème sur le fichier excel de la mini_instance
         if id_file == 0:
-            t_a = {"1": (24 + 9) * 60, "2": (24 + 13)
-                   * 60, "3": (24 + 16) * 60}
+            t_a = {"1": (24 + 9) * 60, "2": (24 + 13) * 60, "3": (24 + 16) * 60}
     return t_a
 
 
@@ -340,8 +337,7 @@ def init_t_d(df_sillons_dep: pd.DataFrame, id_file: int) -> dict:
         if pd.notna(date_dep) and heure_dep is not None:
             # Nombre de jours depuis le 08/08
             days_since_ref = (date_dep - Constantes.BASE_TIME).days
-            minutes_since_ref = (days_since_ref * 1440) + \
-                heure_dep  # Ajout des minutes
+            minutes_since_ref = (days_since_ref * 1440) + heure_dep  # Ajout des minutes
 
             # Création d'un ID unique : Train_ID_Date
             train_id_unique = f"{train_id}_{date_dep.strftime('%d')}"
@@ -349,8 +345,7 @@ def init_t_d(df_sillons_dep: pd.DataFrame, id_file: int) -> dict:
             t_d[train_id_unique] = minutes_since_ref
         # Pour résoudre manuellement le problème sur le fichier excel de la mini_instance
         if id_file == 0:
-            t_d = {"4": (24 + 21) * 60, "5": (24 + 21)
-                   * 60, "6": (24 + 21) * 60 + 30}
+            t_d = {"4": (24 + 21) * 60, "5": (24 + 21) * 60, "6": (24 + 21) * 60 + 30}
     return t_d
 
 
@@ -424,8 +419,7 @@ def dernier_depart(df_sillons_dep, base_time_value):
     """
     # Convertir les dates et heures en datetime
     df_sillons_dep["Datetime"] = pd.to_datetime(
-        df_sillons_dep["JDEP"].astype(
-            str) + " " + df_sillons_dep["HDEP"].astype(str)
+        df_sillons_dep["JDEP"].astype(str) + " " + df_sillons_dep["HDEP"].astype(str)
     )
 
     # Trouver l'heure de départ la plus tardive
@@ -459,8 +453,7 @@ def premiere_arrivee(df_sillons_arr, base_time_value):
     """
     # Convertir les dates et heures en datetime
     df_sillons_arr["Datetime"] = pd.to_datetime(
-        df_sillons_arr["JDEP"].astype(
-            str) + " " + df_sillons_arr["HDEP"].astype(str)
+        df_sillons_arr["JDEP"].astype(str) + " " + df_sillons_arr["HDEP"].astype(str)
     )
 
     # Trouver l'heure de départ la plus tardive
@@ -600,8 +593,7 @@ def creation_limites_machines(file: str, id_file: int) -> dict:
         .apply(lambda x: convertir_en_minutes(x, file, id_file))
     )
 
-    listes_plates_machines = indisponibilites_machines.apply(
-        lambda x: list(chain(*x)))
+    listes_plates_machines = indisponibilites_machines.apply(lambda x: list(chain(*x)))
 
     limites_machines = []
     for liste in listes_plates_machines:
@@ -709,8 +701,25 @@ def init_limites_voies(file: str):
     return limites_chantiers_voies
 
 
-def ecriture_donnees_sortie_jalon2(
-    t_arr, t_dep, occupation_REC, occupation_FOR, occupation_DEP, x_date
+def ecriture_donnees_sortie(
+    t_arr,
+    t_dep,
+    occupation_REC,
+    occupation_FOR,
+    occupation_DEP,
+    x_date,
+    limites_voies,
+    file,
+    h_deb,
+    equip,
+    nb_cycles_agents,
+    who_arr,
+    who_dep,
+    liste_id_train_arrivee,
+    liste_id_train_depart,
+    nombre_agents,
+    nb_cycle_jour,
+    nombre_cycles_agents,
 ):
     """
     Traite les données pour les mettre dans une feuille de calcul de sortie au format standard.
@@ -729,6 +738,30 @@ def ecriture_donnees_sortie_jalon2(
         Occupation des voies du chantier de départ en fonction du temps.
     x_date : list
         Horodatage des points des listes précédentes.
+    limites_voies : dict
+        Nombre de voies utilisables par chantier.
+    file : str
+        Nom du fichier Excel contenant les roulements des agents.
+    who_arr : dict
+        Variables indiquant si une tâche d'arrivée est assignée à un agent.
+    who_dep : dict
+        Variables indiquant si une tâche de départ est assignée à un agent.
+    h_deb : dict
+        Horaires de début des cycles des agents.
+    nb_roulements : int
+        Nombre total de roulements.
+    nb_cycles_agents : dict
+        Nombre de cycles pour chaque roulement.
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+    nombre_agents : dict
+        Nombre d'agents du roulement activés pour le cycle.
+    nb_cycle_jour :
+        Nombre de cycle par jour du roulement.
+    nombre_cycles_agents :
+        Nombre total de cycle du roulement.
 
     Retourne :
     ---------
@@ -743,25 +776,21 @@ def ecriture_donnees_sortie_jalon2(
                 + n_arr
                 + "#"
                 + (
-                    Constantes.BASE_TIME +
-                    datetime.timedelta(minutes=15*var_arr.X)
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=15 * var_arr)
                 ).strftime("%d/%m/%Y")
                 + "#A",
                 "Type de tâche": "DEB",
                 "Jour": (
-                    Constantes.BASE_TIME +
-                    datetime.timedelta(minutes=15*var_arr.X)
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=15 * var_arr)
                 ).strftime("%d/%m/%Y"),
                 "Heure de début": (
-                    Constantes.BASE_TIME +
-                    datetime.timedelta(minutes=15*var_arr.X)
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=15 * var_arr)
                 ).strftime("%H:%M"),
                 "Durée": Taches.T_ARR[m_arr],
                 "Sillon": n_arr
                 + "#"
                 + (
-                    Constantes.BASE_TIME +
-                    datetime.timedelta(minutes=15*var_arr.X)
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=15 * var_arr)
                 ).strftime("%d/%m/%Y")
                 + "#A",
             }
@@ -774,25 +803,21 @@ def ecriture_donnees_sortie_jalon2(
                 + n_dep
                 + "#"
                 + (
-                    Constantes.BASE_TIME +
-                    datetime.timedelta(minutes=15*var_dep.X)
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=15 * var_dep)
                 ).strftime("%d/%m/%Y")
                 + "#D",
                 "Type de tâche": "FOR",
                 "Jour": (
-                    Constantes.BASE_TIME +
-                    datetime.timedelta(minutes=15*var_dep.X)
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=15 * var_dep)
                 ).strftime("%d/%m/%Y"),
                 "Heure de début": (
-                    Constantes.BASE_TIME +
-                    datetime.timedelta(minutes=15*var_dep.X)
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=15 * var_dep)
                 ).strftime("%H:%M"),
                 "Durée": Taches.T_DEP[m_dep],
                 "Sillon": n_dep
                 + "#"
                 + (
-                    Constantes.BASE_TIME +
-                    datetime.timedelta(minutes=15*var_dep.X)
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=15 * var_dep)
                 ).strftime("%d/%m/%Y")
                 + "#D",
             }
@@ -805,25 +830,21 @@ def ecriture_donnees_sortie_jalon2(
                 + n_dep
                 + "#"
                 + (
-                    Constantes.BASE_TIME +
-                    datetime.timedelta(minutes=15*var_dep.X)
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=15 * var_dep)
                 ).strftime("%d/%m/%Y")
                 + "#D",
                 "Type de tâche": "DEG",
                 "Jour": (
-                    Constantes.BASE_TIME +
-                    datetime.timedelta(minutes=15*var_dep.X)
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=15 * var_dep)
                 ).strftime("%d/%m/%Y"),
                 "Heure de début": (
-                    Constantes.BASE_TIME +
-                    datetime.timedelta(minutes=15*var_dep.X)
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=15 * var_dep)
                 ).strftime("%H:%M"),
                 "Durée": Taches.T_DEP[m_dep],
                 "Sillon": n_dep
                 + "#"
                 + (
-                    Constantes.BASE_TIME +
-                    datetime.timedelta(minutes=15*var_dep.X)
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=15 * var_dep)
                 ).strftime("%d/%m/%Y")
                 + "#D",
             }
@@ -845,11 +866,57 @@ def ecriture_donnees_sortie_jalon2(
     # Versement des données d'occupation vers une trame de données
     df_xl2 = pd.DataFrame(xl2)
 
+    xl3 = {
+        "Occupation des voies par chantier (optim)": [
+            "Taux max d'occupation des voies (en %)",
+            "Nombre max de voies occupées",
+            "Nombre total de voies à disposition",
+        ],
+        "WPY_REC": [
+            100 * max(occupation_REC) / limites_voies[Chantiers.REC],
+            max(occupation_REC),
+            limites_voies[Chantiers.REC],
+        ],
+        "WPY_FOR": [
+            100 * max(occupation_FOR) / limites_voies[Chantiers.FOR],
+            max(occupation_FOR),
+            limites_voies[Chantiers.FOR],
+        ],
+        "WPY_DEP": [
+            100 * max(occupation_DEP) / limites_voies[Chantiers.DEP],
+            max(occupation_DEP),
+            limites_voies[Chantiers.DEP],
+        ],
+    }
+
+    df_xl3 = pd.DataFrame(xl3)
+
+    df_xl4, df_xl5 = ecriture_donnees_sortie_jalon3(
+        file,
+        t_arr,
+        t_dep,
+        h_deb,
+        equip,
+        nb_cycles_agents,
+        who_arr,
+        who_dep,
+        liste_id_train_arrivee,
+        liste_id_train_depart,
+        nombre_agents,
+        nb_cycle_jour,
+        nombre_cycles_agents,
+    )
+
     # Versement des trames vers la feuilles de calcul
     with pd.ExcelWriter("sortie_jalon2.xlsx", engine="openpyxl") as writer:
         df_xl.to_excel(writer, sheet_name="Taches machine", index=False)
-        df_xl2.to_excel(
-            writer, sheet_name="Occupation voie chantier", index=False)
+        df_xl2.to_excel(writer, sheet_name="Occupation voie chantier", index=False)
+        df_xl3.to_excel(
+            writer, sheet_name="Statistiques occupation voie chantier", index=False
+        )
+        df_xl4.to_excel(writer, sheet_name="Roulements agents", index=False)
+        df_xl5.to_excel(writer, sheet_name="Statistiques roulements", index=False)
+
     return True
 
 
@@ -900,17 +967,14 @@ def roulements_operants_sur_tache(file: str) -> dict:
     roulements_operants_sur_m = {}
     for m in [1, 2, 3]:
         roulements_operants_sur_m[("arr", m)] = (
-            df[df["Connaissances chantiers"].str.contains(
-                "REC", na=False)].index + 1
+            df[df["Connaissances chantiers"].str.contains("REC", na=False)].index + 1
         ).tolist()
         roulements_operants_sur_m[("dep", m)] = (
-            df[df["Connaissances chantiers"].str.contains(
-                "FOR", na=False)].index + 1
+            df[df["Connaissances chantiers"].str.contains("FOR", na=False)].index + 1
         ).tolist()
     for m in [4]:
         roulements_operants_sur_m[("dep", m)] = (
-            df[df["Connaissances chantiers"].str.contains(
-                "DEP", na=False)].index + 1
+            df[df["Connaissances chantiers"].str.contains("DEP", na=False)].index + 1
         ).tolist()
     return roulements_operants_sur_m
 
@@ -966,7 +1030,7 @@ def heure_debut_roulement(file: str, temps_min: int, temps_max: int) -> dict:
 
     while jour_de_la_semaine <= dernier_jour_de_la_semaine:
         for r in range(1, nb_roulements + 1):
-            if (jour_de_la_semaine.weekday()) % 7+1 in jour_semaine_disponibilite[r]:
+            if (jour_de_la_semaine.weekday()) % 7 + 1 in jour_semaine_disponibilite[r]:
                 h_deb0[r] += [jour_de_la_semaine + t for t in h_deb_jour[r]]
         jour_de_la_semaine += datetime.timedelta(days=1)
     print(h_deb0)
@@ -1051,7 +1115,19 @@ def comp(file):
 
 
 def ecriture_donnees_sortie_jalon3(
-    file, t_arr, t_dep, h_deb, equip, nb_cycles_agents, who_arr, who_dep
+    file,
+    t_arr,
+    t_dep,
+    h_deb,
+    equip,
+    nb_cycles_agents,
+    who_arr,
+    who_dep,
+    liste_id_train_arrivee,
+    liste_id_train_depart,
+    nombre_agents,
+    nb_cycle_jour,
+    nombre_cycles_agents,
 ):
     """
     Traite les données pour les mettre dans une feuille de calcul de sortie au format standard.
@@ -1074,6 +1150,16 @@ def ecriture_donnees_sortie_jalon3(
         Nombre total de roulements.
     nb_cycles_agents : dict
         Nombre de cycles pour chaque roulement.
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+    nombre_agents : dict
+        Nombre d'agents du roulement activés pour le cycle.
+    nb_cycle_jour :
+        Nombre de cycle par jour du roulement.
+    nombre_cycles_agents :
+        Nombre total de cycle du roulement.
 
     Retourne :
     ---------
@@ -1082,129 +1168,194 @@ def ecriture_donnees_sortie_jalon3(
     """
     df = pd.read_excel(file, sheet_name="Roulements agents")
     noms_roulements = {r + 1: df.at[r, "Roulement"] for r in df.index}
+    df = pd.read_excel(file, sheet_name="Taches humaines")
+    noms_tache = {m + 1: df.at[m, "Type de tache humaine"] for m in df.index}
 
     def get_time_string(var):
         """Convertit une variable Gurobi en une chaîne de date et heure formatée."""
         var_value = int(var.X) if hasattr(var, "X") else int(var)
-        return (Constantes.BASE_TIME + datetime.timedelta(minutes=15 * var_value)).strftime("%d/%m/%Y %H:%M")
+        return (
+            Constantes.BASE_TIME + datetime.timedelta(minutes=15 * var_value)
+        ).strftime("%d/%m/%Y %H:%M")
 
-    xl = [
-        {
-            "Id JS": noms_roulements[r] + "_" + str((h_deb[(r, k)] % 1440) // 60) + "_" + get_time_string(var_arr),
-            "Ordre T": m_arr,
-            "Type T": "arrivée Reception",
-            "Sillon": f"{n_arr}#{get_time_string(var_arr)}#A",
-            "Début T": get_time_string(var_arr),
-            "Durée T": Taches.T_ARR[m_arr],
-            "Lieu T": "WPY_REC",
-            "Roulement": noms_roulements[r],
-        }
-        for (m_arr, n_arr), var_arr in t_arr.items()
-        for r in equip[m_arr]
-        for k in range(1, nb_cycles_agents[r] + 1)
-        if m_arr == 1
-        if who_arr[(m_arr, n_arr, r, k, 3 * int(var_arr.X))].X == 1
-    ] + [
-        {
-            "Id JS": noms_roulements[r] + "_" + str((h_deb[(r, k)] % 1440) // 60) + "_" + get_time_string(var_arr),
-            "Ordre T": m_arr,
-            "Type T": "préparation tri",
-            "Sillon": f"{n_arr}#{get_time_string(var_arr)}#A",
-            "Début T": get_time_string(var_arr),
-            "Durée T": Taches.T_ARR[m_arr],
-            "Lieu T": "WPY_REC",
-            "Roulement": noms_roulements[r],
-        }
-        for (m_arr, n_arr), var_arr in t_arr.items()
-        for r in equip[m_arr]
-        for k in range(1, nb_cycles_agents[r] + 1)
-        if m_arr == 2
-        if who_arr[(m_arr, n_arr, r, k, 3 * int(var_arr.X))].X == 1
-    ] + [
-        {
-            "Id JS": noms_roulements[r] + "_" + str((h_deb[(r, k)] % 1440) // 60) + "_" + get_time_string(var_arr),
-            "Ordre T": m_arr,
-            "Type T": "débranchement",
-            "Sillon": f"{n_arr}#{get_time_string(var_arr)}#A",
-            "Début T": get_time_string(var_arr),
-            "Durée T": Taches.T_ARR[m_arr],
-            "Lieu T": "WPY_REC",
-            "Roulement": noms_roulements[r],
-        }
-        for (m_arr, n_arr), var_arr in t_arr.items()
-        for r in equip[m_arr]
-        for k in range(1, nb_cycles_agents[r] + 1)
-        if m_arr == 3
-        if who_arr[(m_arr, n_arr, r, k, 3 * int(var_arr.X))].X == 1
-    ] + [
-        {
-            "Id JS": noms_roulements[r] + "_" + str((h_deb[(r, k)] % 1440) // 60) + "_" + get_time_string(var_dep),
-            "Ordre T": m_dep,
-            "Type T": "appui voie + mise en place câle",
-            "Sillon": f"{n_dep}#{get_time_string(var_dep)}#A",
-            "Début T": get_time_string(var_dep),
-            "Durée T": Taches.T_DEP[m_dep],
-            "Lieu T": "WPY_FOR",
-            "Roulement": noms_roulements[r],
-        }
-        for (m_dep, n_dep), var_dep in t_dep.items()
-        for r in equip[m_dep]
-        for k in range(1, nb_cycles_agents[r] + 1)
-        if m_dep == 1
-        if who_dep[(m_dep, n_dep, r, k, 3 * int(var_dep.X))].X == 1
-    ] + [
-        {
-            "Id JS": noms_roulements[r] + "_" + str((h_deb[(r, k)] % 1440) // 60) + "_" + get_time_string(var_dep),
-            "Ordre T": m_dep,
-            "Type T": "attelage véhicules",
-            "Sillon": f"{n_dep}#{get_time_string(var_dep)}#A",
-            "Début T": get_time_string(var_dep),
-            "Durée T": Taches.T_DEP[m_dep],
-            "Lieu T": "WPY_FOR",
-            "Roulement": noms_roulements[r],
-        }
-        for (m_dep, n_dep), var_dep in t_dep.items()
-        for r in equip[m_dep]
-        for k in range(1, nb_cycles_agents[r] + 1)
-        if m_dep == 2
-        if who_dep[(m_dep, n_dep, r, k, 3 * int(var_dep.X))].X == 1
-    ] + [
-        {
-            "Id JS": noms_roulements[r] + "_" + str((h_deb[(r, k)] % 1440) // 60) + "_" + get_time_string(var_dep),
-            "Ordre T": m_dep,
-            "Type T": "dégarage / bouger de rame",
-            "Sillon": f"{n_dep}#{get_time_string(var_dep)}#A",
-            "Début T": get_time_string(var_dep),
-            "Durée T": Taches.T_DEP[m_dep],
-            "Lieu T": "WPY_FOR",
-            "Roulement": noms_roulements[r],
-        }
-        for (m_dep, n_dep), var_dep in t_dep.items()
-        for r in equip[m_dep]
-        for k in range(1, nb_cycles_agents[r] + 1)
-        if m_dep == 3
-        if who_dep[(m_dep, n_dep, r, k, 3 * int(var_dep.X))].X == 1
-    ] + [
-        {
-            "Id JS": noms_roulements[r] + "_" + str((h_deb[(r, k)] % 1440) // 60) + "_" + get_time_string(var_dep),
-            "Ordre T": m_dep,
-            "Type T": "essai de frein départ",
-            "Sillon": f"{n_dep}#{get_time_string(var_dep)}#A",
-            "Début T": get_time_string(var_dep),
-            "Durée T": Taches.T_DEP[m_dep],
-            "Lieu T": "WPY_FOR",
-            "Roulement": noms_roulements[r],
-        }
-        for (m_dep, n_dep), var_dep in t_dep.items()
-        for r in equip[m_dep]
-        for k in range(1, nb_cycles_agents[r] + 1)
-        if m_dep == 4
-        if who_dep[(m_dep, n_dep, r, k, 3 * int(var_dep.X))].X == 1
-    ]
+    xl = (
+        [
+            {
+                "Id JS": noms_roulements[r]
+                + "_"
+                + str((h_deb[(r, k)] % 1440) // 60)
+                + "_"
+                + get_time_string(t_arr[1, n_arr]),
+                "Ordre T": 1,
+                "Type T": noms_tache[1],
+                "Sillon": f"{n_arr}#{get_time_string(t_arr[1, n_arr])}#A",
+                "Début T": get_time_string(t_arr[1, n_arr]),
+                "Durée T": Taches.T_ARR[1],
+                "Lieu T": "WPY_REC",
+                "Roulement": noms_roulements[r],
+            }
+            for n_arr in liste_id_train_arrivee
+            for r in equip[("arr", 1)]
+            for k in range(1, nb_cycles_agents[r] + 1)
+            if 15 * t_arr[1, n_arr] >= h_deb[r, k]
+            and 15 * t_arr[1, n_arr] + Taches.T_ARR[1] <= h_deb[r, k] + 8 * 60
+            if who_arr[(1, n_arr, r, k, 3 * t_arr[1, n_arr])].X == 1
+        ]
+        + [
+            {
+                "Id JS": noms_roulements[r]
+                + "_"
+                + str((h_deb[(r, k)] % 1440) // 60)
+                + "_"
+                + get_time_string(t_arr[2, n_arr]),
+                "Ordre T": 2,
+                "Type T": noms_tache[2],
+                "Sillon": f"{n_arr}#{get_time_string(t_arr[2, n_arr])}#A",
+                "Début T": get_time_string(t_arr[2, n_arr]),
+                "Durée T": Taches.T_ARR[2],
+                "Lieu T": "WPY_REC",
+                "Roulement": noms_roulements[r],
+            }
+            for n_arr in liste_id_train_arrivee
+            for r in equip[("arr", 2)]
+            for k in range(1, nb_cycles_agents[r] + 1)
+            if 15 * t_arr[2, n_arr] >= h_deb[r, k]
+            and 15 * t_arr[2, n_arr] + Taches.T_ARR[2] <= h_deb[r, k] + 8 * 60
+            if who_arr[(2, n_arr, r, k, 3 * t_arr[2, n_arr])].X == 1
+        ]
+        + [
+            {
+                "Id JS": noms_roulements[r]
+                + "_"
+                + str((h_deb[(r, k)] % 1440) // 60)
+                + "_"
+                + get_time_string(t_arr[3, n_arr]),
+                "Ordre T": 3,
+                "Type T": noms_tache[3],
+                "Sillon": f"{n_arr}#{get_time_string(t_arr[3, n_arr])}#A",
+                "Début T": get_time_string(t_arr[3, n_arr]),
+                "Durée T": Taches.T_ARR[3],
+                "Lieu T": "WPY_REC",
+                "Roulement": noms_roulements[r],
+            }
+            for n_arr in liste_id_train_arrivee
+            for r in equip[("arr", 3)]
+            for k in range(1, nb_cycles_agents[r] + 1)
+            if 15 * t_arr[3, n_arr] >= h_deb[r, k]
+            and 15 * t_arr[3, n_arr] + Taches.T_ARR[3] <= h_deb[r, k] + 8 * 60
+            if who_arr[(3, n_arr, r, k, 3 * t_arr[3, n_arr])].X == 1
+        ]
+        + [
+            {
+                "Id JS": noms_roulements[r]
+                + "_"
+                + str((h_deb[(r, k)] % 1440) // 60)
+                + "_"
+                + get_time_string(t_dep[3, n_dep]),
+                "Ordre T": 1,
+                "Type T": noms_tache[4],
+                "Sillon": f"{n_dep}#{get_time_string(t_dep[3, n_dep])}#A",
+                "Début T": get_time_string(t_dep[3, n_dep]),
+                "Durée T": Taches.T_DEP[1],
+                "Lieu T": "WPY_FOR",
+                "Roulement": noms_roulements[r],
+            }
+            for n_dep in liste_id_train_depart
+            for r in equip[("dep", 1)]
+            for k in range(1, nb_cycles_agents[r] + 1)
+            if 15 * t_dep[1, n_dep] >= h_deb[r, k]
+            and 15 * t_dep[1, n_dep] + Taches.T_DEP[1] <= h_deb[r, k] + 8 * 60
+            if who_dep[(1, n_dep, r, k, 3 * t_dep[1, n_dep])].X == 1
+        ]
+        + [
+            {
+                "Id JS": noms_roulements[r]
+                + "_"
+                + str((h_deb[(r, k)] % 1440) // 60)
+                + "_"
+                + get_time_string(t_dep[2, n_dep]),
+                "Ordre T": 2,
+                "Type T": noms_tache[5],
+                "Sillon": f"{n_dep}#{get_time_string(t_dep[2, n_dep])}#A",
+                "Début T": get_time_string(t_dep[2, n_dep]),
+                "Durée T": Taches.T_DEP[2],
+                "Lieu T": "WPY_FOR",
+                "Roulement": noms_roulements[r],
+            }
+            for n_dep in liste_id_train_depart
+            for r in equip[("dep", 2)]
+            for k in range(1, nb_cycles_agents[r] + 1)
+            if 15 * t_dep[2, n_dep] >= h_deb[r, k]
+            and 15 * t_dep[2, n_dep] + Taches.T_DEP[2] <= h_deb[r, k] + 8 * 60
+            if who_dep[(2, n_dep, r, k, 3 * t_dep[2, n_dep])].X == 1
+        ]
+        + [
+            {
+                "Id JS": noms_roulements[r]
+                + "_"
+                + str((h_deb[(r, k)] % 1440) // 60)
+                + "_"
+                + get_time_string(t_dep[3, n_dep]),
+                "Ordre T": 3,
+                "Type T": noms_tache[6],
+                "Sillon": f"{n_dep}#{get_time_string(t_dep[3, n_dep])}#A",
+                "Début T": get_time_string(t_dep[3, n_dep]),
+                "Durée T": Taches.T_DEP[3],
+                "Lieu T": "WPY_FOR",
+                "Roulement": noms_roulements[r],
+            }
+            for n_dep in liste_id_train_depart
+            for r in equip[("dep", 3)]
+            for k in range(1, nb_cycles_agents[r] + 1)
+            if 15 * t_dep[3, n_dep] >= h_deb[r, k]
+            and 15 * t_dep[3, n_dep] + Taches.T_DEP[3] <= h_deb[r, k] + 8 * 60
+            if who_dep[(3, n_dep, r, k, 3 * t_dep[3, n_dep])].X == 1
+        ]
+        + [
+            {
+                "Id JS": noms_roulements[r]
+                + "_"
+                + str((h_deb[(r, k)] % 1440) // 60)
+                + "_"
+                + get_time_string(t_dep[4, n_dep]),
+                "Ordre T": 4,
+                "Type T": noms_tache[7],
+                "Sillon": f"{n_dep}#{get_time_string(t_dep[4, n_dep])}#A",
+                "Début T": get_time_string(t_dep[4, n_dep]),
+                "Durée T": Taches.T_DEP[4],
+                "Lieu T": "WPY_DEP",
+                "Roulement": noms_roulements[r],
+            }
+            for n_dep in liste_id_train_depart
+            for r in equip[("dep", 4)]
+            for k in range(1, nb_cycles_agents[r] + 1)
+            if 15 * t_dep[4, n_dep] >= h_deb[r, k]
+            and 15 * t_dep[4, n_dep] + Taches.T_DEP[4] <= h_deb[r, k] + 8 * 60
+            if who_dep[(4, n_dep, r, k, 3 * t_dep[4, n_dep])].X == 1
+        ]
+    )
 
     df_xl = pd.DataFrame(xl)
 
-    with pd.ExcelWriter("sortie_jalon3.xlsx", engine="openpyxl") as writer:
-        df_xl.to_excel(writer, sheet_name="Roulements agents", index=False)
+    xl2 = {"Nb de JS activées": [noms_roulements[r] for r in noms_roulements.keys()]}
 
-    return True
+    nb_jour = nombre_cycles_agents[1] // nb_cycle_jour[1]
+    print(nb_jour)
+
+    for j in range(nb_jour):
+        xl2[
+            (Constantes.BASE_TIME + datetime.timedelta(days=j)).strftime(
+                format="%d/%m/%Y"
+            )
+        ] = [0 for r in noms_roulements.keys()]
+    for r in noms_roulements.keys():
+        for k in range(1, nombre_cycles_agents[r] + 1):
+            xl2[
+                (
+                    Constantes.BASE_TIME + datetime.timedelta(minutes=h_deb[r, k])
+                ).strftime(format="%d/%m/%Y")
+            ][r - 1] += nombre_agents[r, k].X
+
+    df_xl2 = pd.DataFrame(xl2)
+
+    return df_xl, df_xl2

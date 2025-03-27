@@ -24,11 +24,7 @@ contraintes_premier_wagon : Ajoute les contraintes définissant le
 import gurobipy as grb
 from tqdm import tqdm
 
-from module.constants import (
-    Chantiers,
-    Machines,
-    Taches
-)
+from module.constants import Chantiers, Machines, Taches
 
 
 def init_contraintes(
@@ -47,6 +43,10 @@ def init_contraintes(
     temps_min: int,
     limites_chantiers: dict,
     limites_machines: dict,
+    hat_arr: dict,
+    hat_dep: dict,
+    k_arr: dict,
+    k_dep: dict,
 ) -> bool:
     """
     Initialise les contraintes du modèle d'optimisation.
@@ -101,6 +101,18 @@ def init_contraintes(
         liste_id_train_depart,
     )
 
+    contraintes_decomp(
+        model,
+        t_arr,
+        hat_arr,
+        k_arr,
+        liste_id_train_arrivee,
+        t_dep,
+        hat_dep,
+        k_dep,
+        liste_id_train_depart,
+    )
+
     contraintes_machines(
         model,
         t_arr,
@@ -115,7 +127,7 @@ def init_contraintes(
         liste_id_train_arrivee,
         t_dep,
         liste_id_train_depart,
-        limites_machines
+        limites_machines,
     )
 
     contraintes_ouvertures_chantiers(
@@ -124,7 +136,7 @@ def init_contraintes(
         liste_id_train_arrivee,
         t_dep,
         liste_id_train_depart,
-        limites_chantiers
+        limites_chantiers,
     )
 
     contraintes_succession(
@@ -155,6 +167,7 @@ def init_contraintes(
     )
 
     return True
+
 
 def init_contraintes2(
     model: grb.Model,
@@ -217,24 +230,24 @@ def init_contraintes2(
         Toujours True après l'initialisation des contraintes.
     """
 
-    # contrainte_nombre_max_agents(
-    #     model,
-    #     nombre_roulements,
-    #     nombre_cycles_agents,
-    #     nombre_agents,
-    #     max_agents_sur_roulement,
-    #     nb_cycle_jour,
-    # )
+    contrainte_nombre_max_agents(
+        model,
+        nombre_roulements,
+        nombre_cycles_agents,
+        nombre_agents,
+        max_agents_sur_roulement,
+        nb_cycle_jour,
+    )
 
     unicite_roulement_et_cycle(
-       model,
-       equip,
-       nombre_cycles_agents,
-       liste_id_train_arrivee,
-       liste_id_train_depart,
-       who_arr,
-       who_dep,
-       h_deb,
+        model,
+        equip,
+        nombre_cycles_agents,
+        liste_id_train_arrivee,
+        liste_id_train_depart,
+        who_arr,
+        who_dep,
+        h_deb,
     )
 
     non_saturation_personnel(
@@ -263,18 +276,18 @@ def init_contraintes2(
         t_arr,
         t_dep,
     )
-    # contrainte_unicite_who_cycle(
-    #     model,
-    #     equip,
-    #     liste_id_train_arrivee,
-    #     liste_id_train_depart,
-    #     nombre_cycles_agents,
-    #     who_arr,
-    #     who_dep,
-    #     h_deb,
-    #     t_arr,
-    #     t_dep,
-    # )
+    contrainte_unicite_who_cycle(
+        model,
+        equip,
+        liste_id_train_arrivee,
+        liste_id_train_depart,
+        nombre_cycles_agents,
+        who_arr,
+        who_dep,
+        h_deb,
+        t_arr,
+        t_dep,
+    )
 
     return True
 
@@ -337,6 +350,67 @@ def contraintes_temporalite(
             model.addConstr(
                 15 * t_dep[(m, id_train_dep)] + Taches.T_DEP[m]
                 <= 15 * t_dep[(m + 1, id_train_dep)]
+            )
+    return True
+
+
+def contraintes_decomp(
+    model: grb.Model,
+    t_arr: dict,
+    hat_arr: dict,
+    k_arr: dict,
+    liste_id_train_arrivee: list,
+    t_dep: dict,
+    hat_dep: dict,
+    k_dep: dict,
+    liste_id_train_depart: list,
+) -> bool:
+    """
+    Ajoute les contraintes de temporalité des tâches sur un même train,
+    ainsi que le respect des heures de départ et d'arrivée.
+
+    Paramètres :
+    -----------
+    model : grb.Model
+        Modèle d'optimisation Gurobi.
+    t_arr : dict
+        Variables de début des tâches d'arrivée.
+    t_a : dict
+        Temps d'arrivée à la gare de fret des trains.
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+    t_dep : dict
+        Variables de début des tâches de départ.
+    t_d : dict
+        Temps de départ de la gare de fret des trains.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+
+    Retourne :
+    ---------
+    bool
+        Toujours True après l'ajout des contraintes de temporalité.
+    """
+    for id_train_arr in tqdm(
+        liste_id_train_arrivee,
+        "Contrainte assurant la décomposition des heures de début de tâches sur les trains d'arrivée",
+    ):
+        for m in Taches.TACHES_ARRIVEE:
+            model.addConstr(15 * hat_arr[(m, id_train_arr)] + Taches.T_ARR[m] <= 8 * 60)
+            model.addConstr(
+                t_arr[m, id_train_arr]
+                == 5 * 4 + hat_arr[m, id_train_arr] + 8 * 4 * k_arr[m, id_train_arr]
+            )
+
+    for id_train_dep in tqdm(
+        liste_id_train_depart,
+        "Contrainte assurant la décomposition des heures de début de tâches sur les trains d'arrivée",
+    ):
+        for m in Taches.TACHES_DEPART:
+            model.addConstr(15 * hat_dep[(m, id_train_dep)] + Taches.T_DEP[m] <= 8 * 60)
+            model.addConstr(
+                t_dep[m, id_train_dep]
+                == 5 * 4 + hat_dep[m, id_train_dep] + 8 * 4 * k_dep[m, id_train_dep]
             )
     return True
 
@@ -440,7 +514,7 @@ def contraintes_ouvertures_machines(
     liste_id_train_arrivee: list,
     t_dep: dict,
     liste_id_train_depart: list,
-    Limites_machines: dict
+    Limites_machines: dict,
 ) -> tuple[dict, dict, dict]:
     """
     Ajoute des contraintes pour respecter les horaires d'utilisation des machines.
@@ -1259,10 +1333,10 @@ def unicite_roulement_et_cycle(
     who_dep,
     h_deb,
 ):
-    r_sur_m_arr = {m: equip[("arr", m)] for m in [1, 2, 3]}
-    r_sur_m_dep = {m: equip[("dep", m)] for m in [1, 2, 3, 4]}
+    r_sur_m_arr = {m: equip[("arr", m)] for m in Taches.TACHES_ARRIVEE}
+    r_sur_m_dep = {m: equip[("dep", m)] for m in Taches.TACHES_DEPART}
 
-    for m in [1, 2, 3]:
+    for m in Taches.TACHES_ARRIVEE:
         for id_train in liste_id_train_arrivee:
             model.addConstr(
                 grb.quicksum(
@@ -1276,7 +1350,7 @@ def unicite_roulement_et_cycle(
                 >= Taches.T_ARR[m] // 5
             )
 
-    for m in [1, 2, 3, 4]:
+    for m in Taches.TACHES_DEPART:
         for id_train in liste_id_train_depart:
             model.addConstr(
                 grb.quicksum(
@@ -1340,9 +1414,9 @@ def contrainte_cohérence_who_t(
 ):
     eps = 0.1
     M_big = 100000000
-    r_sur_m_arr = {m: equip[("arr", m)] for m in [1, 2, 3]}
-    r_sur_m_dep = {m: equip[("dep", m)] for m in [1, 2, 3, 4]}
-    for m in [1, 2, 3]:
+    r_sur_m_arr = {m: equip[("arr", m)] for m in Taches.TACHES_ARRIVEE}
+    r_sur_m_dep = {m: equip[("dep", m)] for m in Taches.TACHES_DEPART}
+    for m in Taches.TACHES_ARRIVEE:
         for id_train in liste_id_train_arrivee:
             for r in r_sur_m_arr[m]:
                 for k in range(1, nb_cycles[r] + 1):
@@ -1358,7 +1432,7 @@ def contrainte_cohérence_who_t(
                             + eps
                             + M_big * (1 - who_arr[(m, id_train, r, k, t)])
                         )
-    for m in [1, 2, 3, 4]:
+    for m in Taches.TACHES_DEPART:
         for id_train in liste_id_train_depart:
             for r in r_sur_m_dep[m]:
                 for k in range(1, nb_cycles[r] + 1):
@@ -1389,9 +1463,9 @@ def contrainte_unicite_who_cycle(
     t_dep,
 ):
     M_big = 100000000
-    r_sur_m_arr = {m: equip[("arr", m)] for m in [1, 2, 3]}
-    r_sur_m_dep = {m: equip[("dep", m)] for m in [1, 2, 3, 4]}
-    for m in [1, 2, 3]:
+    r_sur_m_arr = {m: equip[("arr", m)] for m in Taches.TACHES_ARRIVEE}
+    r_sur_m_dep = {m: equip[("dep", m)] for m in Taches.TACHES_DEPART}
+    for m in Taches.TACHES_ARRIVEE:
         for id_train in liste_id_train_arrivee:
             for r in r_sur_m_arr[m]:
                 for k in range(1, nb_cycles[r] + 1):
@@ -1407,7 +1481,7 @@ def contrainte_unicite_who_cycle(
                             + 8 * 60
                             + M_big * (1 - who_arr[(m, id_train, r, k, t)])
                         )
-    for m in [1, 2, 3, 4]:
+    for m in Taches.TACHES_DEPART:
         for id_train in liste_id_train_depart:
             for r in r_sur_m_dep[m]:
                 for k in range(1, nb_cycles[r] + 1):

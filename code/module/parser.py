@@ -935,7 +935,6 @@ def ecriture_donnees_sortie(
     liste_id_train_depart,
     nombre_agents,
     nb_cycle_jour,
-    nombre_cycles_agents,
     df_roulement_agent,
     df_taches_humaines,
     file_name
@@ -1126,7 +1125,7 @@ def ecriture_donnees_sortie(
         liste_id_train_depart,
         nombre_agents,
         nb_cycle_jour,
-        nombre_cycles_agents,
+        nb_cycles_agents,
         df_roulement_agent,
         df_taches_humaines,
     )
@@ -1235,7 +1234,7 @@ def ecriture_donnees_sortie_jalon3(
             for k in range(1, nb_cycles_agents[r] + 1)
             if 15 * t_arr[1, n_arr] >= h_deb[r, k]
             and 15 * t_arr[1, n_arr] + Taches.T_ARR[1] <= h_deb[r, k] + 8 * 60
-            if who_arr[(1, n_arr, r, k, 1 * t_arr[1, n_arr])].X == 1
+            if who_arr[(1, n_arr, r, k, 3 * t_arr[1, n_arr])].X == 1
         ]
         + [
             {
@@ -1257,7 +1256,7 @@ def ecriture_donnees_sortie_jalon3(
             for k in range(1, nb_cycles_agents[r] + 1)
             if 15 * t_arr[2, n_arr] >= h_deb[r, k]
             and 15 * t_arr[2, n_arr] + Taches.T_ARR[2] <= h_deb[r, k] + 8 * 60
-            if who_arr[(2, n_arr, r, k, 1 * t_arr[2, n_arr])].X == 1
+            if who_arr[(2, n_arr, r, k, 3 * t_arr[2, n_arr])].X == 1
         ]
         + [
             {
@@ -1279,7 +1278,7 @@ def ecriture_donnees_sortie_jalon3(
             for k in range(1, nb_cycles_agents[r] + 1)
             if 15 * t_arr[3, n_arr] >= h_deb[r, k]
             and 15 * t_arr[3, n_arr] + Taches.T_ARR[3] <= h_deb[r, k] + 8 * 60
-            if who_arr[(3, n_arr, r, k, 1 * t_arr[3, n_arr])].X == 1
+            if who_arr[(3, n_arr, r, k, 3 * t_arr[3, n_arr])].X == 1
         ]
         + [
             {
@@ -1301,7 +1300,7 @@ def ecriture_donnees_sortie_jalon3(
             for k in range(1, nb_cycles_agents[r] + 1)
             if 15 * t_dep[1, n_dep] >= h_deb[r, k]
             and 15 * t_dep[1, n_dep] + Taches.T_DEP[1] <= h_deb[r, k] + 8 * 60
-            if who_dep[(1, n_dep, r, k, 1 * t_dep[1, n_dep])].X == 1
+            if who_dep[(1, n_dep, r, k, 3 * t_dep[1, n_dep])].X == 1
         ]
         + [
             {
@@ -1323,7 +1322,7 @@ def ecriture_donnees_sortie_jalon3(
             for k in range(1, nb_cycles_agents[r] + 1)
             if 15 * t_dep[2, n_dep] >= h_deb[r, k]
             and 15 * t_dep[2, n_dep] + Taches.T_DEP[2] <= h_deb[r, k] + 8 * 60
-            if who_dep[(2, n_dep, r, k, 1 * t_dep[2, n_dep])].X == 1
+            if who_dep[(2, n_dep, r, k, 3 * t_dep[2, n_dep])].X == 1
         ]
         + [
             {
@@ -1345,7 +1344,7 @@ def ecriture_donnees_sortie_jalon3(
             for k in range(1, nb_cycles_agents[r] + 1)
             if 15 * t_dep[3, n_dep] >= h_deb[r, k]
             and 15 * t_dep[3, n_dep] + Taches.T_DEP[3] <= h_deb[r, k] + 8 * 60
-            if who_dep[(3, n_dep, r, k, 1 * t_dep[3, n_dep])].X == 1
+            if who_dep[(3, n_dep, r, k, 3 * t_dep[3, n_dep])].X == 1
         ]
         + [
             {
@@ -1367,7 +1366,7 @@ def ecriture_donnees_sortie_jalon3(
             for k in range(1, nb_cycles_agents[r] + 1)
             if 15 * t_dep[4, n_dep] >= h_deb[r, k]
             and 15 * t_dep[4, n_dep] + Taches.T_DEP[4] <= h_deb[r, k] + 8 * 60
-            if who_dep[(4, n_dep, r, k, 1 * t_dep[4, n_dep])].X == 1
+            if who_dep[(4, n_dep, r, k, 3 * t_dep[4, n_dep])].X == 1
         ]
     )
 

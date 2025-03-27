@@ -37,6 +37,7 @@ def init_model(
     temps_min: int,
     limites_chantiers: dict,
     limites_machines: dict,
+    nb_cycle_agents: dict,
 ) -> tuple[grb.Model, dict, dict, dict]:
     """
     Initialise le modèle d'optimisation avec les variables et contraintes.
@@ -73,12 +74,14 @@ def init_model(
     """
     model = grb.Model("SNCF JALON 3.1")
 
-    t_arr, t_dep, is_present, premier_wagon = init_variables(
-        model,
-        liste_id_train_arrivee,
-        liste_id_train_depart,
-        temps_min,
-        temps_max,
+    t_arr, t_dep, is_present, premier_wagon, hat_arr, hat_dep, k_arr, k_dep = (
+        init_variables(
+            model,
+            liste_id_train_arrivee,
+            liste_id_train_depart,
+            temps_min,
+            temps_max,
+        )
     )
 
     init_contraintes(
@@ -97,17 +100,19 @@ def init_model(
         temps_min,
         limites_chantiers,
         limites_machines,
+        hat_arr,
+        hat_dep,
+        k_arr,
+        k_dep,
     )
 
     init_objectif(
         model,
-        is_present,
+        liste_id_train_arrivee,
         liste_id_train_depart,
-        temps_min,
-        temps_max,
-        t_arr,
-        t_dep,
-        liste_id_train_arrivee
+        k_arr,
+        k_dep,
+        nb_cycle_agents,
     )
 
     # Choix d'un paramétrage d'affichage
@@ -116,6 +121,7 @@ def init_model(
     model.update()
 
     return model, t_arr, t_dep, is_present
+
 
 def init_model2(
     liste_id_train_arrivee: list,
@@ -129,7 +135,7 @@ def init_model2(
     comp_dep,
     nb_cycle_jour,
     t_arr,
-    t_dep
+    t_dep,
 ) -> tuple[grb.Model, dict, dict, dict]:
     """
     Initialise le modèle d'optimisation avec les variables et contraintes.
@@ -193,15 +199,10 @@ def init_model2(
         who_dep,
         comp_arr,
         comp_dep,
-        nb_cycle_jour
+        nb_cycle_jour,
     )
 
-    init_objectif2(
-        model2,
-        nombre_agents,
-        nombre_roulements,
-        nb_cycles_agents
-    )
+    init_objectif2(model2, nombre_agents, nombre_roulements, nb_cycles_agents)
 
     # Choix d'un paramétrage d'affichage
     model2.params.outputflag = 0  # mode muet
@@ -209,6 +210,7 @@ def init_model2(
     model2.update()
 
     return model2, who_arr, who_dep, nombre_agents
+
 
 def init_variables(
     m: grb.Model,
@@ -218,7 +220,7 @@ def init_variables(
     temps_max: int,
 ) -> tuple[dict, dict, dict, dict]:
     """
-    Initialise les variables de début des tâches pour les trains, 
+    Initialise les variables de début des tâches pour les trains,
     de présence sur un chantier de premier débranchement de wagon.
 
     Paramètres :
@@ -249,8 +251,12 @@ def init_variables(
         m, liste_id_train_arrivee, liste_id_train_depart, temps_min, temps_max
     )
     premier_wagon = variable_premier_wagon(m, liste_id_train_depart)
+    hat_arr, hat_dep, k_arr, k_dep = variable_decomp(
+        m, liste_id_train_arrivee, liste_id_train_depart
+    )
 
-    return t_arr, t_dep, is_present, premier_wagon
+    return t_arr, t_dep, is_present, premier_wagon, hat_arr, hat_dep, k_arr, k_dep
+
 
 def init_variables2(
     m: grb.Model,
@@ -469,7 +475,7 @@ def variable_who(
             vtype=grb.GRB.BINARY,
             name=f"Bool_roulement_{r}_réalise_tâche_arr_{m}_au_cycle_{k}_au_temps_{t}",
         )
-        for m in [1, 2, 3]
+        for m in Taches.TACHES_ARRIVEE
         for n in liste_id_train_arrivee
         for r in equip[("arr", m)]
         for k in range(1, nb_cycles_agents[r] + 1)
@@ -480,7 +486,7 @@ def variable_who(
             vtype=grb.GRB.BINARY,
             name=f"Bool_roulement_{r}_réalise_tâche_dep_{m}_au_cycle_{k}_au_temps_{t}",
         )
-        for m in [1, 2, 3, 4]
+        for m in Taches.TACHES_DEPART
         for n in liste_id_train_depart
         for r in equip[("dep", m)]
         for k in range(1, nb_cycles_agents[r] + 1)
@@ -488,15 +494,67 @@ def variable_who(
     }
     return who_arr, who_dep
 
+
+def variable_decomp(
+    model: grb.Model,
+    liste_id_train_arrivee: list,
+    liste_id_train_depart: list,
+) -> dict:
+    """
+    Initialise les variables décomposant les variables de début des tâches pour les
+    trains à l'arrivée et au départ en leur numéro de cycle et leur temps dans le cycle.
+
+    Paramètres :
+    -----------
+    model : grb.Model
+        Modèle d'optimisation Gurobi.
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+
+    Retourne :
+    ---------
+    tuple[dict, dict, dict, dict]
+        - Variables de temps dans le cycle des débuts de tâches d'arrivée.
+        - Variables de temps dans le cycle des débuts de tâches de départ.
+        - Variables de numéro de cycle des débuts de tâches d'arrivée.
+        - Variables de numéro de cycle des débuts de tâches de départ.
+    """
+    hat_arr = {
+        (m, id_train_arr): model.addVar(
+            vtype=grb.GRB.INTEGER, lb=0, ub=8 * 4 - 1, name="t"
+        )
+        for m in Taches.TACHES_ARRIVEE
+        for id_train_arr in liste_id_train_arrivee
+    }
+    hat_dep = {
+        (m, id_train_arr): model.addVar(
+            vtype=grb.GRB.INTEGER, lb=0, ub=8 * 4 - 1, name="t"
+        )
+        for m in Taches.TACHES_DEPART
+        for id_train_arr in liste_id_train_depart
+    }
+    k_arr = {
+        (m, id_train_arr): model.addVar(vtype=grb.GRB.INTEGER, lb=0, name="t")
+        for m in Taches.TACHES_ARRIVEE
+        for id_train_arr in liste_id_train_arrivee
+    }
+    k_dep = {
+        (m, id_train_arr): model.addVar(vtype=grb.GRB.INTEGER, lb=0, name="t")
+        for m in Taches.TACHES_DEPART
+        for id_train_arr in liste_id_train_depart
+    }
+    return hat_arr, hat_dep, k_arr, k_dep
+
+
 def init_objectif(
     model: grb.Model,
-    is_present: dict,
+    liste_id_train_arrivee: dict,
     liste_id_train_depart: dict,
-    temps_min: int,
-    temps_max: int,
-    t_arr: dict,
-    t_dep: dict,
-    liste_id_train_arrivee : list
+    k_arr: dict,
+    k_dep: dict,
+    nb_cycle_agents: dict,
 ) -> bool:
     """
     Crée la variable à minimiser de la fonction object ainsi que ses contraintes.
@@ -519,18 +577,79 @@ def init_objectif(
     bool
         True si la fonction objectif est ajoutée.
     """
-    max_FOR = model.addVar(vtype=grb.GRB.INTEGER, lb=0, name="max_FOR")
-    for t in range(temps_min, temps_max + 1):
+    K = nb_cycle_agents[1]
+    M_big = K
+    eps = 0.1
+
+    delta_arr = {
+        (k, m, n, x): model.addVar(vtype=grb.GRB.BINARY, name="delta_arr_{k}_{m}_{n}")
+        for n in liste_id_train_arrivee
+        for m in Taches.TACHES_ARRIVEE
+        for k in range(K)
+        for x in [-1, 0, 1]
+    }
+    delta_dep = {
+        (k, m, n, x): model.addVar(vtype=grb.GRB.BINARY, name="delta_dep_{k}_{m}_{n}")
+        for n in liste_id_train_depart
+        for m in Taches.TACHES_DEPART
+        for k in range(K)
+        for x in [-1, 0, 1]
+    }
+
+    max_t = model.addVar(vtype=grb.GRB.INTEGER, lb=0, name="max_t")
+
+    for k in range(K):
+        for n in liste_id_train_arrivee:
+            for m in Taches.TACHES_ARRIVEE:
+                model.addConstr(k_arr[m, n] - k + eps <= M_big * delta_arr[k, m, n, 1])
+                model.addConstr(
+                    k - k_arr[m, n] - eps <= M_big * (1 - delta_arr[k, m, n, 1])
+                )
+                model.addConstr(k - k_arr[m, n] + eps <= M_big * delta_arr[k, m, n, -1])
+                model.addConstr(
+                    k_arr[m, n] - k - eps <= M_big * (1 - delta_arr[k, m, n, -1])
+                )
+                model.addConstr(
+                    delta_arr[k, m, n, 0]>=delta_arr[k, m, n, 1]+delta_arr[k, m, n, -1]-1
+                )
+        for n in liste_id_train_depart:
+            for m in Taches.TACHES_DEPART:
+                model.addConstr(k_dep[m, n] - k + eps <= M_big * delta_dep[k, m, n, 1])
+                model.addConstr(
+                    k - k_dep[m, n] - eps <= M_big * (1 - delta_dep[k, m, n, 1])
+                )
+                model.addConstr(k - k_dep[m, n] + eps <= M_big * delta_dep[k, m, n, -1])
+                model.addConstr(
+                    k_dep[m, n] - k - eps <= M_big * (1 - delta_dep[k, m, n, -1])
+                )
+                model.addConstr(
+                    delta_dep[k, m, n, 0]>=delta_dep[k, m, n, 1]+delta_dep[k, m, n, -1]-1
+                )
         model.addConstr(
-            max_FOR
+            max_t
             >= grb.quicksum(
-                is_present[Chantiers.FOR][(id_train, t)]
-                for id_train in liste_id_train_depart
+                [
+                    delta_arr[k, m, n, 0]
+                    for n in liste_id_train_arrivee
+                    for m in Taches.TACHES_ARRIVEE
+                ]
+            )
+            + grb.quicksum(
+                [
+                    delta_dep[k, m, n, 0]
+                    for n in liste_id_train_depart
+                    for m in Taches.TACHES_DEPART
+                ]
             )
         )
-    model.setObjective(max_FOR+0.00001/temps_max*(grb.quicksum([t_arr[m,id_train_arr] for m in range(1,4) for id_train_arr in liste_id_train_arrivee])/(3*len(liste_id_train_arrivee))-grb.quicksum([t_dep[m,id_train_dep] for m in range(1,4) for id_train_dep in liste_id_train_depart])/(3*len(liste_id_train_depart))), grb.GRB.MINIMIZE)
+
+    model.setObjective(
+        max_t,
+        grb.GRB.MINIMIZE,
+    )
 
     return True
+
 
 def init_objectif2(
     model: grb.Model,
@@ -559,8 +678,16 @@ def init_objectif2(
     bool
         True si la fonction objectif est ajoutée.
     """
-    
-    model.setObjective(grb.quicksum([nombre_agents[(r,k)] for r in range(1, nombre_roulements + 1)
-        for k in range(1, nb_cycles_agents[r] + 1)]), grb.GRB.MINIMIZE)
+
+    model.setObjective(
+        grb.quicksum(
+            [
+                nombre_agents[(r, k)]
+                for r in range(1, nombre_roulements + 1)
+                for k in range(1, nb_cycles_agents[r] + 1)
+            ]
+        ),
+        grb.GRB.MINIMIZE,
+    )
 
     return True

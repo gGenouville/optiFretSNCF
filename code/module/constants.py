@@ -83,6 +83,7 @@ class Feuilles:
     CHANTIERS = "Chantiers"
     CORRESPONDANCES = "Correspondances"
     ROULEMENT_AGENTS = "Roulements agents"
+    TACHES_HUMAINES = "Taches humaines"
 
 
 class Colonnes:

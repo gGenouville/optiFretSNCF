@@ -47,7 +47,6 @@ def convert_hour_to_minutes(hour_str: str) -> int | None:
 
 def convertir_en_minutes(
     indisponibilites: str,
-    df_sillon_dep: pd.DataFrame,
     dernier_depart: float,
 ) -> list:
     """

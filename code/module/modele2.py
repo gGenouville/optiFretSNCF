@@ -45,7 +45,9 @@ def init_model(
     h_deb,
     comp_arr,
     comp_dep,
-    nb_cycle_jour
+    nb_cycle_jour,
+    limites_chantiers,
+    limites_machines,
 ) -> tuple[grb.Model, dict, dict, dict]:
     """
     Initialise le modèle d'optimisation avec les variables et contraintes.
@@ -122,7 +124,9 @@ def init_model(
         who_dep,
         comp_arr,
         comp_dep,
-        nb_cycle_jour
+        nb_cycle_jour,
+        limites_chantiers,
+        limites_machines,
     )
 
     init_objectif(
@@ -138,7 +142,7 @@ def init_model(
     # Mise à jour du modèle
     model.update()
 
-    return model, t_arr, t_dep, is_present
+    return model, t_arr, t_dep, is_present, who_arr, who_dep, nombre_agents
 
 
 def init_variables(
@@ -371,7 +375,7 @@ def variable_who(
         for n in liste_id_train_arrivee
         for r in equip[("arr", m)]
         for k in range(1, nb_cycles_agents[r] + 1)
-        for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12)
+        for t in range(h_deb[(r, k)] // 15, h_deb[(r, k)] // 15 + 8 * 4)
     }
     who_dep = {
         (m, n, r, k, t): model.addVar(
@@ -382,7 +386,7 @@ def variable_who(
         for n in liste_id_train_depart
         for r in equip[("dep", m)]
         for k in range(1, nb_cycles_agents[r] + 1)
-        for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12)
+        for t in range(h_deb[(r, k)] // 15, h_deb[(r, k)] // 15 + 8 * 4)
     }
     return who_arr, who_dep
 

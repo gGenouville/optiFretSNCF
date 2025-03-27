@@ -24,12 +24,10 @@ contraintes_premier_wagon : Ajoute les contraintes définissant le
 import gurobipy as grb
 from tqdm import tqdm
 
-from module.utils2 import (
+from module.constants import (
     Chantiers,
     Machines,
     Taches,
-    creation_limites_chantiers,
-    creation_limites_machines,
 )
 
 
@@ -60,6 +58,8 @@ def init_contraintes(
     comp_arr,
     comp_dep,
     nb_cycle_jour,
+    limites_chantiers,
+    limites_machines,
 ) -> bool:
     """
     Initialise les contraintes du modèle d'optimisation.
@@ -130,6 +130,7 @@ def init_contraintes(
         liste_id_train_depart,
         file,
         id_file,
+        limites_machines
     )
 
     contraintes_ouvertures_chantiers(
@@ -140,6 +141,7 @@ def init_contraintes(
         liste_id_train_depart,
         file,
         id_file,
+        limites_chantiers
     )
 
     contraintes_succession(
@@ -178,16 +180,16 @@ def init_contraintes(
         nb_cycle_jour,
     )
 
-    #unicite_roulement_et_cycle(
-    #    model,
-    #    equip,
-    #    nombre_cycles_agents,
-    #    liste_id_train_arrivee,
-    #    liste_id_train_depart,
-    #    who_arr,
-    #    who_dep,
-    #    h_deb,
-    #)
+    unicite_roulement_et_cycle(
+       model,
+       equip,
+       nombre_cycles_agents,
+       liste_id_train_arrivee,
+       liste_id_train_depart,
+       who_arr,
+       who_dep,
+       h_deb,
+    )
 
     non_saturation_personnel(
         model,
@@ -394,6 +396,7 @@ def contraintes_ouvertures_machines(
     liste_id_train_depart: list,
     file: str,
     id_file: int,
+    Limites_machines : dict
 ) -> tuple[dict, dict, dict]:
     """
     Ajoute des contraintes pour respecter les horaires d'utilisation des machines.
@@ -414,6 +417,8 @@ def contraintes_ouvertures_machines(
         Nom du fichier de configuration.
     id_file : int
         Identifiant du fichier.
+    Limites_machines : dict
+        Heures d'ouvertures et de fermeture des intervalles de disponibilité des machines.
 
     Retourne :
     ---------
@@ -423,8 +428,6 @@ def contraintes_ouvertures_machines(
         - `delta_lim_machine_DEG` : Contraintes de limites pour les machines de type DEG.
     """
     M_big = 10000000  # Une grande constante pour relacher certaines contraintes
-
-    Limites_machines = creation_limites_machines(file, id_file)
 
     N_machines = {key: len(Limites_machines[key]) for key in Limites_machines.keys()}
 
@@ -603,6 +606,7 @@ def contraintes_ouvertures_chantiers(
     liste_id_train_depart: list,
     file: str,
     id_file: int,
+    Limites_chantiers: dict
 ) -> tuple[dict, dict, dict]:
     """
     Ajoute des contraintes pour respecter les horaires d'ouverture des chantiers
@@ -624,6 +628,8 @@ def contraintes_ouvertures_chantiers(
         Nom du fichier de configuration.
     id_file : int
         Identifiant du fichier.
+    Limites_chantiers : dict
+        Heures d'ouvertures et de fermeture des chantiers.
 
     Retourne :
     ---------
@@ -633,8 +639,6 @@ def contraintes_ouvertures_chantiers(
         - `delta_lim_chantier_dep` : Contraintes des limites d'ouverture pour les chantiers de type DEP.
     """
     M_big = 10000000  # Une grande constante pour relacher certaines contraintes
-
-    Limites_chantiers = creation_limites_chantiers(file, id_file)
 
     N_chantiers = {key: len(Limites_chantiers[key]) for key in Limites_chantiers.keys()}
 
@@ -1223,29 +1227,29 @@ def unicite_roulement_et_cycle(
     for m in [1, 2, 3]:
         for id_train in liste_id_train_arrivee:
             model.addConstr(
-                grb.quicksum(
+                15*grb.quicksum(
                     [
                         who_arr[(m, id_train, r, k, t)]
                         for r in r_sur_m_arr[m]
                         for k in range(1, nb_cycles_agents[r] + 1)
-                        for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12)
+                        for t in range(h_deb[(r, k)] // 15, h_deb[(r, k)] // 15 + 8 * 4)
                     ]
                 )
-                == Taches.T_ARR[m] // 5
+                == Taches.T_ARR[m]
             )
 
     for m in [1, 2, 3, 4]:
         for id_train in liste_id_train_depart:
             model.addConstr(
-                grb.quicksum(
+                15*grb.quicksum(
                     [
                         who_dep[(m, id_train, r, k, t)]
                         for r in r_sur_m_dep[m]
                         for k in range(1, nb_cycles_agents[r] + 1)
-                        for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12)
+                        for t in range(h_deb[(r, k)] // 15, h_deb[(r, k)] // 15 + 8 * 4)
                     ]
                 )
-                == Taches.T_DEP[m] // 5
+                == Taches.T_DEP[m]
             )
 
 
@@ -1264,7 +1268,7 @@ def non_saturation_personnel(
 ):
     for r in range(1, nombre_roulements + 1):
         for k in range(1, nb_cycles[r] + 1):
-            for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12):
+            for t in range(h_deb[(r, k)] // 15, h_deb[(r, k)] // 15 + 8 * 4):
                 model.addConstr(
                     grb.quicksum(
                         [
@@ -1304,13 +1308,13 @@ def contrainte_cohérence_who_t(
         for id_train in liste_id_train_arrivee:
             for r in r_sur_m_arr[m]:
                 for k in range(1, nb_cycles[r] + 1):
-                    for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12):
+                    for t in range(h_deb[(r, k)] // 15, h_deb[(r, k)] // 15 + 8 * 4):
                         model.addConstr(
                             15 * t_arr[(m, id_train)]
-                            <= 5 * t + M_big * (1 - who_arr[(m, id_train, r, k, t)])
+                            <= 15 * t + M_big * (1 - who_arr[(m, id_train, r, k, t)])
                         )
                         model.addConstr(
-                            5 * t
+                            15 * t
                             <= 15 * t_arr[(m, id_train)]
                             + Taches.T_ARR[m]
                             + eps
@@ -1320,13 +1324,13 @@ def contrainte_cohérence_who_t(
         for id_train in liste_id_train_depart:
             for r in r_sur_m_dep[m]:
                 for k in range(1, nb_cycles[r] + 1):
-                    for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12):
+                    for t in range(h_deb[(r, k)] // 15, h_deb[(r, k)] // 15 + 8 * 4):
                         model.addConstr(
                             15 * t_dep[(m, id_train)]
-                            <= 5 * t + M_big * (1 - who_dep[(m, id_train, r, k, t)])
+                            <= 15 * t + M_big * (1 - who_dep[(m, id_train, r, k, t)])
                         )
                         model.addConstr(
-                            5 * t
+                            15 * t
                             <= 15 * t_dep[(m, id_train)]
                             + Taches.T_DEP[m]
                             + eps
@@ -1353,7 +1357,7 @@ def contrainte_unicite_who_cycle(
         for id_train in liste_id_train_arrivee:
             for r in r_sur_m_arr[m]:
                 for k in range(1, nb_cycles[r] + 1):
-                    for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12):
+                    for t in range(h_deb[(r, k)] // 15, h_deb[(r, k)] // 15 + 8 * 4):
                         model.addConstr(
                             h_deb[(r, k)]
                             <= 15 * t_arr[(m, id_train)]
@@ -1369,7 +1373,7 @@ def contrainte_unicite_who_cycle(
         for id_train in liste_id_train_depart:
             for r in r_sur_m_dep[m]:
                 for k in range(1, nb_cycles[r] + 1):
-                    for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12):
+                    for t in range(h_deb[(r, k)] // 15, h_deb[(r, k)] // 15 + 8 * 4):
                         model.addConstr(
                             h_deb[(r, k)]
                             <= 15 * t_dep[(m, id_train)]

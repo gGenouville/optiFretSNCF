@@ -24,12 +24,10 @@ contraintes_premier_wagon : Ajoute les contraintes définissant le
 import gurobipy as grb
 from tqdm import tqdm
 
-from module.utils2 import (
+from module.constants import (
     Chantiers,
     Machines,
-    Taches,
-    creation_limites_chantiers,
-    creation_limites_machines,
+    Taches
 )
 
 
@@ -42,13 +40,13 @@ def init_contraintes(
     t_d: dict,
     liste_id_train_depart: list,
     dict_correspondances: dict,
-    file: str,
-    id_file: int,
     limites_voies: dict,
     is_present: dict,
     premier_wagon: dict,
     temps_max: int,
     temps_min: int,
+    limites_chantiers: dict,
+    limites_machines: dict,
 ) -> bool:
     """
     Initialise les contraintes du modèle d'optimisation.
@@ -117,8 +115,7 @@ def init_contraintes(
         liste_id_train_arrivee,
         t_dep,
         liste_id_train_depart,
-        file,
-        id_file,
+        limites_machines
     )
 
     contraintes_ouvertures_chantiers(
@@ -127,8 +124,7 @@ def init_contraintes(
         liste_id_train_arrivee,
         t_dep,
         liste_id_train_depart,
-        file,
-        id_file,
+        limites_chantiers
     )
 
     contraintes_succession(
@@ -444,8 +440,7 @@ def contraintes_ouvertures_machines(
     liste_id_train_arrivee: list,
     t_dep: dict,
     liste_id_train_depart: list,
-    file: str,
-    id_file: int,
+    Limites_machines: dict
 ) -> tuple[dict, dict, dict]:
     """
     Ajoute des contraintes pour respecter les horaires d'utilisation des machines.
@@ -475,8 +470,6 @@ def contraintes_ouvertures_machines(
         - `delta_lim_machine_DEG` : Contraintes de limites pour les machines de type DEG.
     """
     M_big = 10000000  # Une grande constante pour relacher certaines contraintes
-
-    Limites_machines = creation_limites_machines(file, id_file)
 
     N_machines = {key: len(Limites_machines[key]) for key in Limites_machines.keys()}
 
@@ -653,8 +646,7 @@ def contraintes_ouvertures_chantiers(
     liste_id_train_arrivee: list,
     t_dep: dict,
     liste_id_train_depart: list,
-    file: str,
-    id_file: int,
+    Limites_chantiers: dict,
 ) -> tuple[dict, dict, dict]:
     """
     Ajoute des contraintes pour respecter les horaires d'ouverture des chantiers
@@ -685,8 +677,6 @@ def contraintes_ouvertures_chantiers(
         - `delta_lim_chantier_dep` : Contraintes des limites d'ouverture pour les chantiers de type DEP.
     """
     M_big = 10000000  # Une grande constante pour relacher certaines contraintes
-
-    Limites_chantiers = creation_limites_chantiers(file, id_file)
 
     N_chantiers = {key: len(Limites_chantiers[key]) for key in Limites_chantiers.keys()}
 

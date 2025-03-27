@@ -23,7 +23,7 @@ init_objectif : Crée la variable à minimiser de la fonction object ainsi que s
 import gurobipy as grb
 
 from module.contraintes2 import init_contraintes, init_contraintes2
-from module.utils2 import Chantiers, Taches
+from module.constants import Chantiers, Taches
 
 
 def init_model(
@@ -32,11 +32,11 @@ def init_model(
     liste_id_train_depart: list,
     t_d: dict,
     dict_correspondances: dict,
-    file: str,
-    id_file: int,
     limites_voies: dict,
     temps_max: int,
     temps_min: int,
+    limites_chantiers: dict,
+    limites_machines: dict,
 ) -> tuple[grb.Model, dict, dict, dict]:
     """
     Initialise le modèle d'optimisation avec les variables et contraintes.
@@ -90,13 +90,13 @@ def init_model(
         t_d,
         liste_id_train_depart,
         dict_correspondances,
-        file,
-        id_file,
         limites_voies,
         is_present,
         premier_wagon,
         temps_max,
         temps_min,
+        limites_chantiers,
+        limites_machines,
     )
 
     init_objectif(

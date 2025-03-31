@@ -1,5 +1,5 @@
 """
-Sous-module de `modele2` dédié à la mise en place des contraintes.
+Sous-module de `modele2` pour la mise en place des contraintes.
 
 Ce module définit les contraintes pour la planification des opérations
 sur les trains.
@@ -7,18 +7,33 @@ sur les trains.
 Fonctions :
 -----------
 init_contraintes : Initialise les contraintes du modèle d'optimisation.
+init_contraintes2 : Initialise les contraintes du modèle d'optimisation.
+                                  Pour les tahces humaines.
 contraintes_temporalite : Ajoute les contraintes de temporalité des tâches.
+contraintes_decomp : Ajoute les contraintes de temporalité des tâches sur un
+                                  même train, ainsi que le respect des heures
+                                  de départ et d'arrivée.
 contraintes_machines : Ajoute les contraintes d'exclusion pour les machines.
-contraintes_ouvertures_machines : Ajoute les contraintes
-        pour respecter les horaires d'utilisation des machines.
-contraintes_ouvertures_chantiers : Ajoute les contraintes
-        pour respecter les horaires d'ouverture des chantiers.
-contraintes_succession : Ajoute des contraintes de succession entre les tâches
-    d'arrivée et de départ des trains, en tenant compte des correspondances de wagons.
-contraintes_nombre_voies : Ajoute des contraintes limitant
-    le nombre de trains présents sur un même chantier.
-contraintes_premier_wagon : Ajoute les contraintes définissant le
-    temps du premier débranchement de wagon du train de départ.
+contraintes_ouvertures_machines : Ajoute les contraintes pour respecter
+                                  les horaires d'utilisation des machines.
+contraintes_ouvertures_chantiers : Ajoute les contraintes pour respecter
+                                   les horaires d'ouverture des chantiers.
+contraintes_succession : Ajoute des contraintes de succession entre les
+                         tâches d'arrivée et de départ des trains.
+contraintes_nombre_voies : Ajoute des contraintes limitant le nombre de
+                           trains présents sur un même chantier.
+contraintes_premier_wagon : Ajoute les contraintes définissant le temps
+                            du premier débranchement de wagon du train
+contrainte_nombre_max_agents : Ajoute une contrainte limitant le nombre maximum
+                                    d'agents par roulement.
+unicite_roulement_et_cycle : Ajoute des contraintes d'unicité pour les
+                                    roulements et cycles des agents.
+non_saturation_personnel : Ajoute des contraintes pour éviter la saturation du
+                                    personnel.
+contrainte_coherence_who_t : Ajoute des contraintes de cohérence pour les
+                                    affectations temporelles.
+contrainte_unicite_who_cycle : Ajoute des contraintes d'unicité pour les cycles
+                                    d'affectation.
 """
 
 import gurobipy as grb
@@ -272,7 +287,7 @@ def init_contraintes2(
         nombre_agents,
     )
 
-    contrainte_cohérence_who_t(
+    contrainte_coherence_who_t(
         model,
         equip,
         liste_id_train_arrivee,
@@ -1513,7 +1528,7 @@ def non_saturation_personnel(
                 )
 
 
-def contrainte_cohérence_who_t(
+def contrainte_coherence_who_t(
     model: grb.Model,
     equip: dict,
     liste_id_train_arrivee: list,

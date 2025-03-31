@@ -15,9 +15,9 @@ import itertools
 import pandas as pd
 import plotly.express as px
 
-from module.utils2 import (
+from module.constants import (
     Taches,
-    base_time
+    Constantes
 )
 from plotly.graph_objects import Figure
 
@@ -44,15 +44,15 @@ def visualisation_gantt(t_arr: dict, t_dep: dict) -> Figure :
     # Données fournies sous forme de liste de dictionnaires
     tasks = [
             {"Train": n_arr,
-            "Start": base_time(1) + datetime.timedelta(minutes=15*var_arr.X),
-            "Finish": base_time(1) + datetime.timedelta(minutes=15*var_arr.X + Taches.T_ARR[m_arr]),
+            "Start": Constantes.BASE_TIME + datetime.timedelta(minutes=15*var_arr.X),
+            "Finish": Constantes.BASE_TIME + datetime.timedelta(minutes=15*var_arr.X + Taches.T_ARR[m_arr]),
             "Machine": f"arr_{m_arr}",
             "Tâches": f"arr_{m_arr}"}
             for (m_arr, n_arr), var_arr in t_arr.items()
         ] + [
             {"Train": n_dep,
-            "Start": base_time(1) + datetime.timedelta(minutes=15*var_dep.X),
-            "Finish": base_time(1) + datetime.timedelta(minutes=15*var_dep.X + Taches.T_DEP[m_dep]),
+            "Start": Constantes.BASE_TIME + datetime.timedelta(minutes=15*var_dep.X),
+            "Finish": Constantes.BASE_TIME + datetime.timedelta(minutes=15*var_dep.X + Taches.T_DEP[m_dep]),
             "Machine": f"dep_{m_dep}",
             "Tâches": f"dep_{m_dep}"}
             for (m_dep, n_dep), var_dep in t_dep.items()

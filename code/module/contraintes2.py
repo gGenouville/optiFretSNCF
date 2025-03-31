@@ -51,8 +51,8 @@ def init_contraintes(
     """
     Initialise les contraintes du modèle d'optimisation.
 
-    Paramètres :
-    -----------
+    Paramètres
+    ----------
     model : grb.Model
         Modèle d'optimisation Gurobi.
     t_arr : dict
@@ -69,24 +69,31 @@ def init_contraintes(
         Identifiants des trains au départ.
     dict_correspondances : dict
         Correspondances entre trains d'arrivée et de départ.
-    file : str
-        Nom du fichier de configuration.
-    id_file : int
-        Identifiant du fichier.
     limites_voies : dict
-        Nombre de voies utilisables par chantier.
+        Capacités maximales des voies par chantier.
     is_present : dict
-        Présence ou non du train id_train sur un chantier.
+        Présence ou absence d'un train sur un chantier.
     premier_wagon : dict
-        Variables de temps du début de la première tâche de débranchement
-        sur les trains d'arrivée contenant des wagons du train de départ
-    temps_min : int
-        Temps d'arrivée du premier train.
+        Début des tâches de débranchement des premiers wagons.
     temps_max : int
         Temps de départ du dernier train.
+    temps_min : int
+        Temps d'arrivée du premier train.
+    limites_chantiers : dict
+        Contraintes sur l'utilisation des chantiers.
+    limites_machines : dict
+        Contraintes sur l'utilisation des machines.
+    hat_arr : dict
+        Variables auxiliaires pour l'arrivée des trains.
+    hat_dep : dict
+        Variables auxiliaires pour le départ des trains.
+    k_arr : dict
+        Paramètres de découpage temporel des arrivées.
+    k_dep : dict
+        Paramètres de découpage temporel des départs.
 
-    Retourne :
-    ---------
+    Retourne
+    -------
     bool
         Toujours True après l'initialisation des contraintes.
     """
@@ -175,57 +182,58 @@ def init_contraintes2(
     liste_id_train_arrivee: list,
     t_dep: dict,
     liste_id_train_depart: list,
-    nombre_roulements,
-    nombre_cycles_agents,
-    nombre_agents,
-    max_agents_sur_roulement,
-    equip,
-    h_deb,
-    who_arr,
-    who_dep,
-    comp_arr,
-    comp_dep,
-    nb_cycle_jour,
+    nombre_roulements: int,
+    nombre_cycles_agents: int,
+    nombre_agents: int,
+    max_agents_sur_roulement: int,
+    equip: dict,
+    h_deb: dict,
+    who_arr: dict,
+    who_dep: dict,
+    comp_arr: dict,
+    comp_dep: dict,
+    nb_cycle_jour: int,
 ) -> bool:
     """
-    Initialise les contraintes du modèle d'optimisation.
+    Initialise les contraintes liées aux agents et aux roulements.
 
-    Paramètres :
-    -----------
+    Paramètres
+    ----------
     model : grb.Model
         Modèle d'optimisation Gurobi.
     t_arr : dict
         Variables de début des tâches d'arrivée.
-    t_a : dict
-        Temps d'arrivée des trains en gare.
     liste_id_train_arrivee : list
         Identifiants des trains à l'arrivée.
     t_dep : dict
         Variables de début des tâches de départ.
-    t_d : dict
-        Temps de départ des trains.
     liste_id_train_depart : list
         Identifiants des trains au départ.
-    dict_correspondances : dict
-        Correspondances entre trains d'arrivée et de départ.
-    file : str
-        Nom du fichier de configuration.
-    id_file : int
-        Identifiant du fichier.
-    limites_voies : dict
-        Nombre de voies utilisables par chantier.
-    is_present : dict
-        Présence ou non du train id_train sur un chantier.
-    premier_wagon : dict
-        Variables de temps du début de la première tâche de débranchement
-        sur les trains d'arrivée contenant des wagons du train de départ
-    temps_min : int
-        Temps d'arrivée du premier train.
-    temps_max : int
-        Temps de départ du dernier train.
+    nombre_roulements : int
+        Nombre total de roulements disponibles.
+    nombre_cycles_agents : int
+        Nombre total de cycles d'agents.
+    nombre_agents : int
+        Nombre total d'agents disponibles.
+    max_agents_sur_roulement : int
+        Nombre maximal d'agents pouvant être affectés à un roulement.
+    equip : dict
+        Association des équipements aux trains et agents.
+    h_deb : dict
+        Heures de début des roulements.
+    who_arr : dict
+        Affectation des agents aux trains à l'arrivée.
+    who_dep : dict
+        Affectation des agents aux trains au départ.
+    comp_arr : dict
+        Compétences requises pour les trains à l'arrivée.
+    comp_dep : dict
+        Compétences requises pour les trains au départ.
+    nb_cycle_jour : int
+        Nombre de cycles d'agents sur une journée.
 
-    Retourne :
-    ---------
+    Retourne
+    -------
     bool
         Toujours True après l'initialisation des contraintes.
     """
@@ -396,10 +404,33 @@ def contraintes_decomp(
         "Contrainte assurant la décomposition des heures de début de tâches sur les trains d'arrivée",
     ):
         for m in Taches.TACHES_ARRIVEE:
-            model.addConstr(15 * hat_arr[(m, id_train_arr)] + Taches.T_ARR[m] <= 8 * 60)
             model.addConstr(
-                t_arr[m, id_train_arr]
-                == 5 * 4 + hat_arr[m, id_train_arr] + 8 * 4 * k_arr[m, id_train_arr]
+                15
+                * hat_arr[
+                    (
+                        m,
+                        id_train_arr,
+                    )
+                ]
+                + Taches.T_ARR[m]
+                <= 8 * 60
+            )
+            model.addConstr(
+                t_arr[
+                    m,
+                    id_train_arr,
+                ]
+                == 5 * 4
+                + hat_arr[
+                    m,
+                    id_train_arr,
+                ]
+                + 8
+                * 4
+                * k_arr[
+                    m,
+                    id_train_arr,
+                ]
             )
 
     for id_train_dep in tqdm(
@@ -407,10 +438,25 @@ def contraintes_decomp(
         "Contrainte assurant la décomposition des heures de début de tâches sur les trains d'arrivée",
     ):
         for m in Taches.TACHES_DEPART:
-            model.addConstr(15 * hat_dep[(m, id_train_dep)] + Taches.T_DEP[m] <= 8 * 60)
             model.addConstr(
-                t_dep[m, id_train_dep]
-                == 5 * 4 + hat_dep[m, id_train_dep] + 8 * 4 * k_dep[m, id_train_dep]
+                15 * hat_dep[(m, id_train_dep),] + Taches.T_DEP[m] <= 8 * 60
+            )
+            model.addConstr(
+                t_dep[
+                    m,
+                    id_train_dep,
+                ]
+                == 5 * 4
+                + hat_dep[
+                    m,
+                    id_train_dep,
+                ]
+                + 8
+                * 4
+                * k_dep[
+                    m,
+                    id_train_dep,
+                ]
             )
     return True
 
@@ -423,11 +469,11 @@ def contraintes_machines(
     liste_id_train_depart: list,
 ) -> tuple[dict, dict]:
     """
-    Ajoute des contraintes pour assurer qu'il n'y a qu'un seul wagon par machine
-    à chaque instant, en gérant les interactions entre les trains.
+    Ajoute des contraintes garantissant qu'une machine ne traite qu'un seul
+    train à la fois, en gérant les interactions entre les trains.
 
-    Paramètres :
-    -----------
+    Paramètres
+    ----------
     model : grb.Model
         Modèle d'optimisation Gurobi.
     t_arr : dict
@@ -439,11 +485,13 @@ def contraintes_machines(
     liste_id_train_depart : list
         Identifiants des trains au départ.
 
-    Retourne :
-    ---------
+    Retourne
+    -------
     tuple[dict, dict]
-        - `delta_arr` : Variables binaires pour les trains à l'arrivée.
-        - `delta_dep` : Variables binaires pour les trains au départ.
+        - `delta_arr` : Variables binaires indiquant l'ordre de passage des trains
+          à l'arrivée sur les machines.
+        - `delta_dep` : Variables binaires indiquant l'ordre de passage des trains
+          au départ sur les machines.
     """
 
     M_big = 100000  # Une grande constante, à ajuster en fonction de tes données
@@ -517,10 +565,11 @@ def contraintes_ouvertures_machines(
     Limites_machines: dict,
 ) -> tuple[dict, dict, dict]:
     """
-    Ajoute des contraintes pour respecter les horaires d'utilisation des machines.
+    Ajoute des contraintes garantissant le respect des horaires d'utilisation
+    des machines.
 
-    Paramètres :
-    -----------
+    Paramètres
+    ----------
     model : grb.Model
         Modèle d'optimisation Gurobi.
     t_arr : dict
@@ -531,17 +580,18 @@ def contraintes_ouvertures_machines(
         Variables de début des tâches de départ.
     liste_id_train_depart : list
         Identifiants des trains au départ.
-    file : str
-        Nom du fichier de configuration.
-    id_file : int
-        Identifiant du fichier.
+    Limites_machines : dict
+        Dictionnaire contenant les plages horaires d'ouverture des machines.
 
-    Retourne :
-    ---------
+    Retourne
+    -------
     tuple[dict, dict, dict]
-        - `delta_lim_machine_DEB` : Contraintes de limites pour les machines de type DEB.
-        - `delta_lim_machine_FOR` : Contraintes de limites pour les machines de type FOR.
-        - `delta_lim_machine_DEG` : Contraintes de limites pour les machines de type DEG.
+        - `delta_lim_machine_DEB` : Variables binaires pour le respect des horaires
+          des machines de type DEB.
+        - `delta_lim_machine_FOR` : Variables binaires pour le respect des horaires
+          des machines de type FOR.
+        - `delta_lim_machine_DEG` : Variables binaires pour le respect des horaires
+          des machines de type DEG.
     """
     M_big = 10000000  # Une grande constante pour relacher certaines contraintes
 
@@ -723,11 +773,11 @@ def contraintes_ouvertures_chantiers(
     Limites_chantiers: dict,
 ) -> tuple[dict, dict, dict]:
     """
-    Ajoute des contraintes pour respecter les horaires d'ouverture des chantiers
-    et garantir que chaque train respecte les limites d'ouverture des différents chantiers.
+    Ajoute des contraintes garantissant que chaque train respecte les horaires
+    d'ouverture des différents chantiers.
 
-    Paramètres :
-    -----------
+    Paramètres
+    ----------
     model : grb.Model
         Modèle d'optimisation Gurobi.
     t_arr : dict
@@ -738,17 +788,18 @@ def contraintes_ouvertures_chantiers(
         Variables de début des tâches de départ.
     liste_id_train_depart : list
         Identifiants des trains au départ.
-    file : str
-        Nom du fichier de configuration.
-    id_file : int
-        Identifiant du fichier.
+    Limites_chantiers : dict
+        Dictionnaire contenant les plages horaires d'ouverture des chantiers.
 
-    Retourne :
-    ---------
+    Retourne
+    -------
     tuple[dict, dict, dict]
-        - `delta_lim_chantier_rec` : Contraintes des limites d'ouverture pour les chantiers de type REC.
-        - `delta_lim_chantier_for` : Contraintes des limites d'ouverture pour les chantiers de type FOR.
-        - `delta_lim_chantier_dep` : Contraintes des limites d'ouverture pour les chantiers de type DEP.
+        - `delta_lim_chantier_rec` : Variables binaires indiquant si un train
+          respecte les horaires du chantier de type REC.
+        - `delta_lim_chantier_for` : Variables binaires indiquant si un train
+          respecte les horaires du chantier de type FOR.
+        - `delta_lim_chantier_dep` : Variables binaires indiquant si un train
+          respecte les horaires du chantier de type DEP.
     """
     M_big = 10000000  # Une grande constante pour relacher certaines contraintes
 
@@ -958,26 +1009,26 @@ def contraintes_succession(
     dict_correspondances: dict,
 ) -> bool:
     """
-    Ajoute des contraintes de succession entre les tâches d'arrivée et de départ
-    des trains, en tenant compte des correspondances de wagons.
+    Ajoute des contraintes de succession entre les arrivées et les départs des trains,
+    en garantissant que les trains liés par une correspondance respectent l'ordre des tâches.
 
-    Paramètres :
-    ------------
-    model : grb.Model
-        Modèle Gurobi pour ajouter les contraintes.
-    t_arr : dict
-        Temps de début des tâches d'arrivée.
-    t_dep : dict
-        Temps de début des tâches de départ.
-    liste_id_train_depart : list
-        Identifiants des trains de départ.
-    dict_correspondances : dict
-        Correspondances entre trains de départ et d'arrivée.
-
-    Retourne :
+    Paramètres
     ----------
+    model : grb.Model
+        Modèle Gurobi dans lequel les contraintes sont ajoutées.
+    t_arr : dict
+        Dictionnaire des variables de début des tâches d'arrivée des trains.
+    t_dep : dict
+        Dictionnaire des variables de début des tâches de départ des trains.
+    liste_id_train_depart : list
+        Liste des identifiants des trains de départ.
+    dict_correspondances : dict
+        Dictionnaire associant chaque train de départ aux trains d'arrivée correspondants.
+
+    Retourne
+    -------
     bool
-        True si les contraintes sont ajoutées.
+        Retourne toujours `True` après l'ajout des contraintes.
     """
     for id_dep in tqdm(
         liste_id_train_depart,
@@ -1005,43 +1056,41 @@ def contraintes_nombre_voies(
     temps_min: int = 0,
 ) -> bool:
     """
-    Ajoute des contraintes limitant le nombre de
-    trains présents sur un même chantier à tout instant.
+    Ajoute des contraintes garantissant que le nombre de trains présents sur un chantier
+    à un instant donné ne dépasse pas la capacité maximale des voies.
 
-    Paramètres :
-    ------------
-    model : grb.Model
-        Modèle Gurobi pour ajouter les contraintes.
-    t_arr : dict
-        Temps de début des tâches d'arrivée.
-    t_dep : dict
-        Temps de début des tâches de départ'.
-    t_a : dict
-        Temps d'arrivée des trains en gare.
-    t_d : dict
-        Temps de départ des trains.
-    liste_id_train_arrivee : list
-        Identifiants des trains d'arrivée'.
-    liste_id_train_depart : list
-        Identifiants des trains de départ.
-    limites_voies : dict
-        Nombre de voies utilisables par chantier.
-    is_present : dict
-        Présence ou non du train id_train sur un chantier.
-    temps_min : int
-        Heure d'arrivée du premier train (permet de réduire le nombre de variables à créer)
-    temps_max : int
-        Heure de départ du dernier train (permet de réduire le nombre de variables à créer)
-    premier_wagon : dict
-        Variables de temps du début de la première tâche de débranchement
-        sur les trains d'arrivée contenant des wagons du train de départ
-
-    Retourne :
+    Paramètres
     ----------
-    bool
-        True si les contraintes sont ajoutées.
-    """
+    model : grb.Model
+        Modèle Gurobi dans lequel les contraintes sont ajoutées.
+    t_arr : dict
+        Variables de début des tâches d'arrivée des trains.
+    t_dep : dict
+        Variables de début des tâches de départ des trains.
+    t_a : dict
+        Horaires d'arrivée réels des trains en gare.
+    t_d : dict
+        Horaires de départ réels des trains.
+    liste_id_train_arrivee : list
+        Liste des identifiants des trains arrivant en gare.
+    liste_id_train_depart : list
+        Liste des identifiants des trains quittant la gare.
+    limites_voies : dict
+        Capacité maximale en nombre de voies utilisables par chantier.
+    is_present : dict
+        Dictionnaire de variables binaires indiquant si un train est présent sur un chantier à un instant donné.
+    premier_wagon : dict
+        Variables de temps du début de la première tâche de débranchement pour les trains de départ.
+    temps_min : int, optionnel (défaut : 0)
+        Temps minimal à considérer (permet de limiter la plage temporelle du modèle).
+    temps_max : int
+        Temps maximal à considérer (permet de limiter la plage temporelle du modèle).
 
+    Retourne
+    -------
+    bool
+        Retourne toujours `True` après l'ajout des contraintes.
+    """
     Mbig = 1000000
     eps = 0.1
 
@@ -1260,29 +1309,29 @@ def contraintes_premier_wagon(
     premier_wagon: dict,
 ) -> bool:
     """
-    Ajoute les contraintes définissant le temps du
-    premier débranchement de wagon du train de départ.
+    Ajoute les contraintes définissant le temps du premier
+    débranchement de wagon pour chaque train de départ.
 
     Paramètres :
     ------------
     model : grb.Model
-        Modèle Gurobi pour ajouter les contraintes.
+        Modèle Gurobi dans lequel ajouter les contraintes.
     t_arr : dict
-        Temps de début des tâches d'arrivée.
+        Variables de début des tâches d'arrivée des trains.
     dict_correspondances : dict
         Correspondances entre trains d'arrivée et de départ.
+        Clés : trains de départ, Valeurs : liste de trains d'arrivée correspondants.
     liste_id_train_depart : list
-        Identifiants des trains de départ.
+        Liste des identifiants des trains de départ.
     premier_wagon : dict
-        Variables de temps du début de la première tâche de débranchement
-        sur les trains d'arrivée contenant des wagons du train de départ.
+        Variable contenant le temps de début du premier débranchement
+        d'un wagon pour chaque train de départ.
 
     Retourne :
     ----------
     bool
-        True si les contraintes sont ajoutées.
+        Retourne toujours `True` après l'ajout des contraintes.
     """
-
     for id_train_depart in tqdm(
         liste_id_train_depart,
         "Contrainte définissant le temps de débranchement du premier wagon d'un train de départ",
@@ -1308,6 +1357,33 @@ def contrainte_nombre_max_agents(
     max_agents_sur_roulement: dict,
     nb_cycle_jour,
 ) -> bool:
+    """
+    Ajoute une contrainte limitant le nombre maximum d'agents par roulement.
+
+    Paramètres :
+    ------------
+    model : grb.Model
+        Modèle Gurobi où les contraintes seront ajoutées.
+    nombre_roulements : int
+        Nombre total de roulements à gérer.
+    nombre_cycles_agents : dict
+        Nombre de cycles attribués à chaque roulement.
+        Clé : roulement (int), Valeur : nombre de cycles (int).
+    nombre_agents : dict
+        Variables de décision pour le nombre d'agents assignés.
+        Clé : (roulement, cycle), Valeur : variable Gurobi.
+    max_agents_sur_roulement : dict
+        Nombre maximum d'agents autorisés pour chaque roulement.
+        Clé : roulement (int), Valeur : maximum autorisé (int).
+    nb_cycle_jour : dict
+        Nombre de cycles par jour pour chaque roulement.
+        Clé : roulement (int), Valeur : nombre de cycles/jour (int).
+
+    Retourne :
+    ----------
+    bool
+        Retourne toujours `True` après l'ajout des contraintes.
+    """
     for r in range(1, nombre_roulements + 1):
         for q in range(nombre_cycles_agents[r] // nb_cycle_jour[r]):
             model.addConstr(
@@ -1324,15 +1400,32 @@ def contrainte_nombre_max_agents(
 
 
 def unicite_roulement_et_cycle(
-    model,
-    equip,
-    nb_cycles_agents,
-    liste_id_train_arrivee,
-    liste_id_train_depart,
-    who_arr,
-    who_dep,
-    h_deb,
+    model: grb.Model,
+    equip: dict,
+    nb_cycles_agents: int,
+    liste_id_train_arrivee: list,
+    liste_id_train_depart: list,
+    who_arr: dict,
+    who_dep: dict,
+    h_deb: dict,
 ):
+    """
+    Ajoute des contraintes d'unicité pour les roulements et cycles des agents.
+
+    Cette fonction configure des contraintes dans un modèle d'optimisation
+    pour garantir que chaque tâche d'arrivée et de départ est couverte par
+    un nombre suffisant d'agents sur une période donnée.
+
+    Args :
+        model : Modèle d'optimisation utilisé.
+        equip (dict) : Dictionnaire des équipements par tâche.
+        nb_cycles_agents (dict) : Nombre de cycles par agent.
+        liste_id_train_arrivee (list) : Liste des IDs de trains en arrivée.
+        liste_id_train_depart (list) : Liste des IDs de trains en départ.
+        who_arr (dict) : Dictionnaire des affectations pour les arrivées.
+        who_dep (dict) : Dictionnaire des affectations pour les départs.
+        h_deb (dict) : Heures de début des cycles par agent.
+    """
     r_sur_m_arr = {m: equip[("arr", m)] for m in Taches.TACHES_ARRIVEE}
     r_sur_m_dep = {m: equip[("dep", m)] for m in Taches.TACHES_DEPART}
 
@@ -1366,18 +1459,38 @@ def unicite_roulement_et_cycle(
 
 
 def non_saturation_personnel(
-    model,
-    nombre_roulements,
-    nb_cycles,
-    h_deb,
-    who_arr,
-    who_dep,
-    liste_id_train_arrivee,
-    liste_id_train_depart,
-    comp_arr,
-    comp_dep,
-    nombre_agents,
+    model: grb.Model,
+    nombre_roulements: int,
+    nb_cycles: dict,
+    h_deb: dict,
+    who_arr: dict,
+    who_dep: dict,
+    liste_id_train_arrivee: list,
+    liste_id_train_depart: list,
+    comp_arr: dict,
+    comp_dep: dict,
+    nombre_agents: dict,
 ):
+    """
+    Ajoute des contraintes pour éviter la saturation du personnel.
+
+    Cette fonction configure des contraintes dans un modèle d'optimisation
+    pour garantir que le nombre d'agents affectés à des tâches d'arrivée
+    et de départ ne dépasse pas le nombre disponible.
+
+    Args :
+        model (grb.Model) : Modèle d'optimisation utilisé.
+        nombre_roulements (int) : Nombre total de roulements.
+        nb_cycles (dict) : Nombre de cycles par roulement.
+        h_deb (dict) : Heures de début des cycles par roulement.
+        who_arr (dict) : Dictionnaire des affectations pour les arrivées.
+        who_dep (dict) : Dictionnaire des affectations pour les départs.
+        liste_id_train_arrivee (list) : Liste des IDs de trains en arrivée.
+        liste_id_train_depart (list) : Liste des IDs de trains en départ.
+        comp_arr (dict) : Compétences des agents pour les arrivées.
+        comp_dep (dict) : Compétences des agents pour les départs.
+        nombre_agents (dict) : Nombre d'agents disponibles par cycle.
+    """
     for r in range(1, nombre_roulements + 1):
         for k in range(1, nb_cycles[r] + 1):
             for t in range(h_deb[(r, k)] // 5, h_deb[(r, k)] // 5 + 8 * 12):
@@ -1401,17 +1514,36 @@ def non_saturation_personnel(
 
 
 def contrainte_cohérence_who_t(
-    model,
-    equip,
-    liste_id_train_arrivee,
-    liste_id_train_depart,
-    nb_cycles,
-    who_arr,
-    who_dep,
-    h_deb,
-    t_arr,
-    t_dep,
+    model: grb.Model,
+    equip: dict,
+    liste_id_train_arrivee: list,
+    liste_id_train_depart: list,
+    nb_cycles: dict,
+    who_arr: dict,
+    who_dep: dict,
+    h_deb: dict,
+    t_arr: dict,
+    t_dep: dict,
 ):
+    """
+    Ajoute des contraintes de cohérence pour les affectations temporelles.
+
+    Cette fonction configure des contraintes dans un modèle d'optimisation
+    pour garantir la cohérence entre les affectations des agents et les
+    horaires des tâches d'arrivée et de départ.
+
+    Args :
+        model : Modèle d'optimisation utilisé.
+        equip (dict) : Dictionnaire des équipements par tâche.
+        liste_id_train_arrivee (list) : Liste des IDs de trains en arrivée.
+        liste_id_train_depart (list) : Liste des IDs de trains en départ.
+        nb_cycles (dict) : Nombre de cycles par agent.
+        who_arr (dict) : Dictionnaire des affectations pour les arrivées.
+        who_dep (dict) : Dictionnaire des affectations pour les départs.
+        h_deb (dict) : Heures de début des cycles par agent.
+        t_arr (dict) : Temps des tâches d'arrivée.
+        t_dep (dict) : Temps des tâches de départ.
+    """
     eps = 0.1
     M_big = 100000000
     r_sur_m_arr = {m: equip[("arr", m)] for m in Taches.TACHES_ARRIVEE}
@@ -1451,17 +1583,36 @@ def contrainte_cohérence_who_t(
 
 
 def contrainte_unicite_who_cycle(
-    model,
-    equip,
-    liste_id_train_arrivee,
-    liste_id_train_depart,
-    nb_cycles,
-    who_arr,
-    who_dep,
-    h_deb,
-    t_arr,
-    t_dep,
+    model: grb.Model,
+    equip: dict,
+    liste_id_train_arrivee: list,
+    liste_id_train_depart: list,
+    nb_cycles: dict,
+    who_arr: dict,
+    who_dep: dict,
+    h_deb: dict,
+    t_arr: dict,
+    t_dep: dict,
 ):
+    """
+    Ajoute des contraintes d'unicité pour les cycles d'affectation.
+
+    Cette fonction configure des contraintes dans un modèle d'optimisation
+    pour garantir que chaque cycle d'affectation est unique et cohérent
+    avec les horaires des tâches d'arrivée et de départ.
+
+    Args :
+        model : Modèle d'optimisation utilisé.
+        equip (dict) : Dictionnaire des équipements par tâche.
+        liste_id_train_arrivee (list) : Liste des IDs de trains en arrivée.
+        liste_id_train_depart (list) : Liste des IDs de trains en départ.
+        nb_cycles (dict) : Nombre de cycles par agent.
+        who_arr (dict) : Dictionnaire des affectations pour les arrivées.
+        who_dep (dict) : Dictionnaire des affectations pour les départs.
+        h_deb (dict) : Heures de début des cycles par agent.
+        t_arr (dict) : Temps des tâches d'arrivée.
+        t_dep (dict) : Temps des tâches de départ.
+    """
     M_big = 100000000
     r_sur_m_arr = {m: equip[("arr", m)] for m in Taches.TACHES_ARRIVEE}
     r_sur_m_dep = {m: equip[("dep", m)] for m in Taches.TACHES_DEPART}

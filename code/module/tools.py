@@ -6,6 +6,10 @@ en minutes, supprimer les doublons dans des sous-listes, et convertir des
 heures au format "hh:mm" en minutes.
 
 Fonctions :
+- convert_hour_to_minutes(hour_str: str) -> int | None:
+    Convertit une chaîne représentant une heure au format "hh:mm" en
+    minutes.
+    
 - convertir_en_minutes(indisponibilites: str, df_sillon_dep: pd.DataFrame,
                        dernier_depart: float) -> list:
     Convertit les plages d'indisponibilités en minutes et les étend chaque
@@ -14,10 +18,6 @@ Fonctions :
 - traitement_doublons(liste: list) -> list:
     Supprime les éléments consécutifs identiques dans chaque sous-liste
     d'une liste donnée.
-
-- convert_hour_to_minutes(hour_str: str) -> int | None:
-    Convertit une chaîne représentant une heure au format "hh:mm" en
-    minutes.
 """
 
 import re
@@ -26,15 +26,17 @@ import pandas as pd
 
 def convert_hour_to_minutes(hour_str: str) -> int | None:
     """
-    Convertit une chaîne représentant une heure au format "hh:mm" en
-    minutes.
+    Convertit une heure au format "hh:mm" en nombre total de minutes.
 
-    Args:
-        hour_str (str): Chaîne représentant une heure au format "hh:mm".
+    Paramètres :
+    ------------
+    hour_str : str
+        Chaîne représentant une heure au format "hh:mm".
 
-    Returns:
-        int | None: Nombre total de minutes ou None si la chaîne est
-            invalide ou mal formatée.
+    Retourne :
+    ----------
+    int | None
+        Nombre total de minutes depuis minuit, ou None si le format est invalide.
     """
     if pd.isna(hour_str) or not isinstance(hour_str, str):
         return None  # Valeur invalide
@@ -50,19 +52,21 @@ def convertir_en_minutes(
     dernier_depart: float,
 ) -> list:
     """
-    Convertit les plages d'indisponibilités en minutes et les étend
+    Convertit les plages d'indisponibilités en minutes et les prolonge 
     chaque semaine jusqu'à dépasser l'heure du dernier train.
 
-    Args:
-        indisponibilites (str): Chaîne contenant les plages
-            d'indisponibilités au format "(jour, hh:mm-hh:mm)".
-        df_sillon_dep (pd.DataFrame): DataFrame contenant les
-            informations de départ. Non utilisé dans cette fonction.
-        dernier_depart (float): Heure du dernier départ en minutes.
+    Paramètres :
+    ------------
+    indisponibilites : str
+        Chaîne contenant les plages d'indisponibilités au format "(jour, hh:mm-hh:mm)".
+    dernier_depart : float
+        Heure du dernier départ en minutes.
 
-    Returns:
-        list: Liste de tuples représentant les plages
-            d'indisponibilités en minutes, étendues chaque semaine.
+    Retourne :
+    ----------
+    list
+        Liste de tuples représentant les plages d'indisponibilités en minutes, 
+        répétées chaque semaine jusqu'à l'heure du dernier départ.
     """
     pattern = r"\((\d+),\s*(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})\)"
     plages_originales = []
@@ -109,15 +113,18 @@ def convertir_en_minutes(
 
 def traitement_doublons(liste: list) -> list:
     """
-    Supprime les éléments consécutifs identiques dans chaque sous-liste
+    Supprime les éléments consécutifs identiques dans chaque sous-liste 
     d'une liste donnée.
 
-    Args:
-        liste (list): Liste contenant des sous-listes d'éléments.
+    Paramètres :
+    ------------
+    liste : list
+        Liste contenant des sous-listes d'éléments.
 
-    Returns:
-        list: Nouvelle liste avec les éléments consécutifs identiques
-            supprimés dans chaque sous-liste.
+    Retourne :
+    ----------
+    list
+        Nouvelle liste où les éléments
     """
     resultat = []
     for elmt in liste:
@@ -131,6 +138,3 @@ def traitement_doublons(liste: list) -> list:
                 i += 1  # On avance normalement si pas de doublon
         resultat.append(resultat_int)
     return resultat
-
-
-#

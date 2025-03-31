@@ -21,7 +21,8 @@ from module.constants import (
 )
 from plotly.graph_objects import Figure
 
-def visualisation_gantt(t_arr: dict, t_dep: dict) -> Figure :
+
+def visualisation_gantt(t_arr: dict, t_dep: dict) -> Figure:
     """
     Prépare la visualisation du diagramme de Gantt des tâches.
 
@@ -29,34 +30,34 @@ def visualisation_gantt(t_arr: dict, t_dep: dict) -> Figure :
     -----------
     t_arr : dict
         Variables de début des tâches d'arrivée. 
-    t_dep: dict
+    t_dep : dict
         Variables de début des tâches de départ.
 
     Retourne :
     ---------
-    bool
-        True si le graphique est construit.
+    fig
+        Trace le diagramme de Gantt.
     """
     # Liste ordonnée des machines
     ordered_machines = ["arr_1", "arr_2", "arr_3",
-                            "dep_1", "dep_2", "dep_3", "dep_4"]
+                        "dep_1", "dep_2", "dep_3", "dep_4"]
 
     # Données fournies sous forme de liste de dictionnaires
     tasks = [
-            {"Train": n_arr,
-            "Start": Constantes.BASE_TIME + datetime.timedelta(minutes=15*var_arr.X),
-            "Finish": Constantes.BASE_TIME + datetime.timedelta(minutes=15*var_arr.X + Taches.T_ARR[m_arr]),
-            "Machine": f"arr_{m_arr}",
-            "Tâches": f"arr_{m_arr}"}
-            for (m_arr, n_arr), var_arr in t_arr.items()
-        ] + [
-            {"Train": n_dep,
-            "Start": Constantes.BASE_TIME + datetime.timedelta(minutes=15*var_dep.X),
-            "Finish": Constantes.BASE_TIME + datetime.timedelta(minutes=15*var_dep.X + Taches.T_DEP[m_dep]),
-            "Machine": f"dep_{m_dep}",
-            "Tâches": f"dep_{m_dep}"}
-            for (m_dep, n_dep), var_dep in t_dep.items()
-        ]
+        {"Train": n_arr,
+         "Start": Constantes.BASE_TIME + datetime.timedelta(minutes=15*var_arr.X),
+         "Finish": Constantes.BASE_TIME + datetime.timedelta(minutes=15*var_arr.X + Taches.T_ARR[m_arr]),
+         "Machine": f"arr_{m_arr}",
+         "Tâches": f"arr_{m_arr}"}
+        for (m_arr, n_arr), var_arr in t_arr.items()
+    ] + [
+        {"Train": n_dep,
+         "Start": Constantes.BASE_TIME + datetime.timedelta(minutes=15*var_dep.X),
+         "Finish": Constantes.BASE_TIME + datetime.timedelta(minutes=15*var_dep.X + Taches.T_DEP[m_dep]),
+         "Machine": f"dep_{m_dep}",
+         "Tâches": f"dep_{m_dep}"}
+        for (m_dep, n_dep), var_dep in t_dep.items()
+    ]
 
     # Construction du DataFrame pour la visualisation
     gantt_df = pd.DataFrame(tasks)
@@ -72,11 +73,11 @@ def visualisation_gantt(t_arr: dict, t_dep: dict) -> Figure :
     ))
 
     fig = px.timeline(gantt_df, x_start="Start",
-                        x_end="Finish", y="Tâches", color="Train")
+                      x_end="Finish", y="Tâches", color="Train")
     fig.update_layout(xaxis=dict(title='Temps',
-                        tickformat='%d/%m/%y %H:%M'))
+                                 tickformat='%d/%m/%y %H:%M'))
     fig.update_yaxes(categoryorder="array",
-                        categoryarray=sorted_resources[::-1])
+                     categoryarray=sorted_resources[::-1])
     return fig
 
 
@@ -90,7 +91,7 @@ def visualisation_occupation(
     -----------
     occupation_REC : list
         Occupation des voies du chantier de réception en fonction du temps.
-    occupation_REC : list
+    occupation_FOR : list
         Occupation des voies du chantier de formation en fonction du temps.
     occupation_DEP : list
         Occupation des voies du chantier de départ en fonction du temps.

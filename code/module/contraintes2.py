@@ -287,7 +287,7 @@ def init_contraintes2(
         nombre_agents,
     )
 
-    contrainte_cohérence_who_t(
+    contrainte_coherence_who_t(
         model,
         equip,
         liste_id_train_arrivee,
@@ -1528,7 +1528,7 @@ def non_saturation_personnel(
                 )
 
 
-def contrainte_cohérence_who_t(
+def contrainte_coherence_who_t(
     model: grb.Model,
     equip: dict,
     liste_id_train_arrivee: list,

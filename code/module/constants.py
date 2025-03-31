@@ -3,24 +3,6 @@
 import pandas as pd
 
 
-class Constantes:
-    """
-
-
-    #-------- ne devrait bientot plus être utilisé --------#
-
-
-    Constantes utilisées dans le module.
-
-    Attributs :
-    -----------
-    BASE_TIME : pd.Timestamp
-        Date de référence pour les calculs temporels.
-    """
-
-    BASE_TIME = pd.Timestamp("2022-08-08 00:00")
-
-
 class Machines:
     """
     Identifiants des machines utilisées dans les opérations.
@@ -75,6 +57,10 @@ class Feuilles:
         Nom de la feuille des chantiers.
     CORRESPONDANCES : str
         Nom de la feuille des correspondances.
+    ROULEMENT_AGENTS : str
+        Nom de la feuille des roulements des agents.
+    TACHES_HUMAINES : str
+        Nom de la feuille des taches humaines.
     """
 
     SILLONS_ARRIVEE = "Sillons arrivee"
@@ -116,10 +102,18 @@ class Colonnes:
         Colonne de la date de départ.
     ID_WAGON : str
         Colonne de l'ID du wagon.
+    NOMBRES_VOIES : str
+        Colonne du nombre de voies du chantier.
     INDISPONIBILITE : str
         Colonne des indisponibilités.
     INDISPONIBILITE_MINUTES : str
         Colonne des indisponibilités en minutes.
+    ROULEMENT : str
+        Colonne des noms des roulements.
+    NOMBRE_AGENTS : str
+        Colonne du nombre d'agents disponibles du roulement.
+    CONNAISSANCES_CHANTIERS : str
+        Colonne de la connaissance des chantiers du roulement.
     """
 
     SILLON_JARR = "JARR"
@@ -163,8 +157,6 @@ class Taches:
         Durée des tâches d'arrivée (en minutes).
     T_DEP : dict[int, int]
         Durée des tâches de départ (en minutes).
-    LIMITES : np.ndarray
-        Horaires limites du chantier et des machines (en minutes).
     """
 
     # définition des taches

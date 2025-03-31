@@ -68,11 +68,13 @@ Dépendances :
 - autres modules spécifiques du projet (ex : Constantes, Colonnes)
 """
 
-import pandas as pd
 from datetime import datetime, timedelta
 from itertools import chain
 from math import ceil
-from module.constants import Constantes, Machines, Chantiers, Feuilles, Colonnes, Taches
+
+import pandas as pd
+
+from module.constants import Chantiers, Colonnes, Feuilles, Machines, Taches
 from module.tools import (
     convert_hour_to_minutes,
     convertir_en_minutes,
@@ -84,7 +86,7 @@ from module.tools import (
 
 def init_dfs(file_path: str):
     """
-    Charge plusieurs DataFrames à partir d'un fichier Excel et initialise 
+    Charge plusieurs DataFrames à partir d'un fichier Excel et initialise
     certaines de ses données.
 
     Paramètres :
@@ -236,7 +238,7 @@ def skibidi_mondays(date: datetime) -> datetime:
     """
     jour_semaine = date.weekday()
     delta = timedelta(days=jour_semaine)
-    return date - delta
+    return (date - delta).replace(hour=0, minute=0, microsecond=0)
 
 
 def init_first_arr(df_sillons_arr: pd.DataFrame) -> datetime:
@@ -346,7 +348,7 @@ def init_values(
 # ----- dicts ----- #
 
 
-def init_dict_t_a(df_sillons_arr: pd.DataFrame) -> dict:
+def init_dict_t_a(df_sillons_arr: pd.DataFrame, monday: datetime) -> dict:
     """
     Crée un dictionnaire des minutes écoulées depuis une date de référence pour
     chaque train d'arrivée.
@@ -360,6 +362,7 @@ def init_dict_t_a(df_sillons_arr: pd.DataFrame) -> dict:
         df_sillons_arr (pd.DataFrame): DataFrame contenant les données des sillons
                                       d'arrivée, incluant les informations sur les
                                       numéros de train, les dates et heures d'arrivée.
+        monday (datetime): Date du lundi de référence.
 
     Returns:
         dict: Dictionnaire avec des identifiants uniques de trains comme clés et les
@@ -375,9 +378,8 @@ def init_dict_t_a(df_sillons_arr: pd.DataFrame) -> dict:
 
         if pd.notna(date_arr) and heure_arr is not None:
             # Nombre de jours depuis le 08/08
-            days_since_ref = (date_arr - Constantes.BASE_TIME).days
-            minutes_since_ref = (days_since_ref * 1440) + \
-                heure_arr  # Ajout des minutes
+            days_since_ref = (date_arr - monday).days
+            minutes_since_ref = (days_since_ref * 1440) + heure_arr  # Ajout des minutes
 
             # Création d'un ID unique : Train_ID_Date, car certains trains portant le même ID passent sur des jours différents
             train_id_unique = f"{train_id}_{date_arr.strftime('%d')}"
@@ -386,7 +388,7 @@ def init_dict_t_a(df_sillons_arr: pd.DataFrame) -> dict:
     return t_a
 
 
-def init_dict_t_d(df_sillons_dep: pd.DataFrame) -> dict:
+def init_dict_t_d(df_sillons_dep: pd.DataFrame, monday: datetime) -> dict:
     """
     Crée un dictionnaire des minutes écoulées depuis une date de référence pour
     chaque train de départ.
@@ -400,6 +402,7 @@ def init_dict_t_d(df_sillons_dep: pd.DataFrame) -> dict:
         df_sillons_dep (pd.DataFrame): DataFrame contenant les données des sillons
                                       de départ, incluant les informations sur les
                                       numéros de train, les dates et heures de départ.
+        monday (datetime): Date du lundi de référence.
 
     Returns:
         dict: Dictionnaire avec des identifiants uniques de trains comme clés et les
@@ -415,9 +418,8 @@ def init_dict_t_d(df_sillons_dep: pd.DataFrame) -> dict:
 
         if pd.notna(date_dep) and heure_dep is not None:
             # Nombre de jours depuis le 08/08
-            days_since_ref = (date_dep - Constantes.BASE_TIME).days
-            minutes_since_ref = (days_since_ref * 1440) + \
-                heure_dep  # Ajout des minutes
+            days_since_ref = (date_dep - monday).days
+            minutes_since_ref = (days_since_ref * 1440) + heure_dep  # Ajout des minutes
 
             # Création d'un ID unique : Train_ID_Date
             train_id_unique = f"{train_id}_{date_dep.strftime('%d')}"
@@ -526,8 +528,7 @@ def init_dict_limites_machines(
         .apply(lambda x: convertir_en_minutes(x, dernier_depart))
     )
 
-    listes_plates_machines = indisponibilites_machines.apply(
-        lambda x: list(chain(*x)))
+    listes_plates_machines = indisponibilites_machines.apply(lambda x: list(chain(*x)))
 
     limites_machines = []
     for liste in listes_plates_machines:
@@ -642,9 +643,7 @@ def init_dict_roulements_operants_sur_tache(
 
 
 def init_dicts_heure_debut_roulement(
-    df_roulement_agent: pd.DataFrame,
-    first_arr: int,
-    last_dep: int,
+    df_roulement_agent: pd.DataFrame, first_arr: int, last_dep: int, monday: datetime
 ) -> tuple[
     dict,
     dict,
@@ -662,6 +661,7 @@ def init_dicts_heure_debut_roulement(
                                            sur les roulements des agents.
         first_arr (int): Heure d'arrivée du premier train en minutes.
         last_dep (int): Heure de départ du dernier train en minutes.
+        monday (datetime): Date du lundi de référence.
 
     Returns:
         tuple:
@@ -691,9 +691,8 @@ def init_dicts_heure_debut_roulement(
 
     nb_cycle_jour = {r: len(h_deb_jour[r]) for r in h_deb_jour}
 
-    jour_de_la_semaine = Constantes.BASE_TIME
-    dernier_jour_de_la_semaine = jour_de_la_semaine + \
-        timedelta(days=delta_jours)
+    jour_de_la_semaine = monday
+    dernier_jour_de_la_semaine = jour_de_la_semaine + timedelta(days=delta_jours)
 
     h_deb0 = {i + 1: [] for i in range(nb_roulements)}
 
@@ -706,7 +705,7 @@ def init_dicts_heure_debut_roulement(
     nb_cycles_agents = {r: len(h_deb0[r]) for r in h_deb0}
 
     h_deb = {
-        (r, k + 1): int((h_deb0[r][k] - Constantes.BASE_TIME).total_seconds() / 60)
+        (r, k + 1): int((h_deb0[r][k] - monday).total_seconds() / 60)
         for r in range(1, nb_roulements + 1)
         for k in range(nb_cycles_agents[r])
     }
@@ -759,6 +758,7 @@ def init_dicts(
     df_roulement_agent: pd.DataFrame,
     first_arr: float,
     dernier_depart: float,
+    monday: datetime,
 ) -> tuple[
     dict,
     dict,
@@ -784,6 +784,7 @@ def init_dicts(
         df_roulement_agent (pd.DataFrame): Données des roulements d'agents.
         first_arr (float): Heure du premier train en minutes.
         dernier_depart (float): Heure du dernier départ en minutes.
+        monday (datetime): Date du lundi de référence.
 
     Returns:
         tuple:
@@ -802,14 +803,12 @@ def init_dicts(
             - dict comp_dep: Compétences agents pour le départ.
     """
     h_deb, nb_cycles_agents, nb_cycle_jour = init_dicts_heure_debut_roulement(
-        df_roulement_agent,
-        first_arr,
-        dernier_depart,
+        df_roulement_agent, first_arr, dernier_depart, monday
     )
     comp_arr, comp_dep = init_dicts_comp(df_roulement_agent)
     return (
-        init_dict_t_a(df_sillons_arr),
-        init_dict_t_d(df_sillons_dep),
+        init_dict_t_a(df_sillons_arr, monday),
+        init_dict_t_d(df_sillons_dep, monday),
         init_dict_correspondances(df_correspondance),
         init_dict_limites_chantiers(
             df_chantiers,
@@ -904,6 +903,7 @@ def lightning_mcqueen_parser(file_path: str):
         df_roulement_agent,
         first_arr,
         dernier_depart,
+        monday,
     )
 
     return (
@@ -940,25 +940,26 @@ def lightning_mcqueen_parser(file_path: str):
 
 
 def ecriture_donnees_sortie(
-    t_arr,
-    t_dep,
-    occupation_REC,
-    occupation_FOR,
-    occupation_DEP,
-    x_date,
-    limites_voies,
-    h_deb,
-    equip,
-    nb_cycles_agents,
-    who_arr,
-    who_dep,
-    liste_id_train_arrivee,
-    liste_id_train_depart,
-    nombre_agents,
-    nb_cycle_jour,
-    df_roulement_agent,
-    df_taches_humaines,
-    file_name,
+    t_arr: dict,
+    t_dep: dict,
+    occupation_REC: list,
+    occupation_FOR: list,
+    occupation_DEP: list,
+    x_date: list,
+    limites_voies: dict,
+    h_deb: dict,
+    equip: dict,
+    nb_cycles_agents: dict,
+    who_arr: dict,
+    who_dep: dict,
+    liste_id_train_arrivee: list,
+    liste_id_train_depart: list,
+    nombre_agents: dict,
+    nb_cycle_jour: dict,
+    df_roulement_agent: pd.DataFrame,
+    df_taches_humaines: pd.DataFrame,
+    file_name: str,
+    monday: datetime,
 ):
     """
     Traite les données pour les mettre dans une feuille de calcul de sortie au format standard.
@@ -996,13 +997,15 @@ def ecriture_donnees_sortie(
     nombre_agents : dict
         Nombre d'agents du roulement activés pour le cycle.
     nb_cycle_jour :
-        Nombre de cycle par jour du roulement. 
+        Nombre de cycle par jour du roulement.
     df_roulement_agent : pd.DataFrame
         DataFrame contenant les informations sur les roulements des agents.
     df_taches_humaines : pd.DataFrame
         DataFrame contenant les informations sur les taches des agents.
     file_name : str
-        Nom du fichier de sortie (sans l'extension)  
+        Nom du fichier de sortie (sans l'extension)
+    monday : datetime
+        Date du lundi de référence.
 
     Retourne :
     ---------
@@ -1016,23 +1019,17 @@ def ecriture_donnees_sortie(
                 "Id tâche": "DEB_"
                 + n_arr
                 + "#"
-                + (Constantes.BASE_TIME + timedelta(minutes=15 * var_arr)).strftime(
-                    "%d/%m/%Y"
-                )
+                + (monday + timedelta(minutes=15 * var_arr)).strftime("%d/%m/%Y")
                 + "#A",
                 "Type de tâche": "DEB",
-                "Jour": (
-                    Constantes.BASE_TIME + timedelta(minutes=15 * var_arr)
-                ).strftime("%d/%m/%Y"),
-                "Heure de début": (
-                    Constantes.BASE_TIME + timedelta(minutes=15 * var_arr)
-                ).strftime("%H:%M"),
+                "Jour": (monday + timedelta(minutes=15 * var_arr)).strftime("%d/%m/%Y"),
+                "Heure de début": (monday + timedelta(minutes=15 * var_arr)).strftime(
+                    "%H:%M"
+                ),
                 "Durée": Taches.T_ARR[m_arr],
                 "Sillon": n_arr
                 + "#"
-                + (Constantes.BASE_TIME + timedelta(minutes=15 * var_arr)).strftime(
-                    "%d/%m/%Y"
-                )
+                + (monday + timedelta(minutes=15 * var_arr)).strftime("%d/%m/%Y")
                 + "#A",
             }
             for (m_arr, n_arr), var_arr in t_arr.items()
@@ -1043,23 +1040,17 @@ def ecriture_donnees_sortie(
                 "Id tâche": "FOR_"
                 + n_dep
                 + "#"
-                + (Constantes.BASE_TIME + timedelta(minutes=15 * var_dep)).strftime(
-                    "%d/%m/%Y"
-                )
+                + (monday + timedelta(minutes=15 * var_dep)).strftime("%d/%m/%Y")
                 + "#D",
                 "Type de tâche": "FOR",
-                "Jour": (
-                    Constantes.BASE_TIME + timedelta(minutes=15 * var_dep)
-                ).strftime("%d/%m/%Y"),
-                "Heure de début": (
-                    Constantes.BASE_TIME + timedelta(minutes=15 * var_dep)
-                ).strftime("%H:%M"),
+                "Jour": (monday + timedelta(minutes=15 * var_dep)).strftime("%d/%m/%Y"),
+                "Heure de début": (monday + timedelta(minutes=15 * var_dep)).strftime(
+                    "%H:%M"
+                ),
                 "Durée": Taches.T_DEP[m_dep],
                 "Sillon": n_dep
                 + "#"
-                + (Constantes.BASE_TIME + timedelta(minutes=15 * var_dep)).strftime(
-                    "%d/%m/%Y"
-                )
+                + (monday + timedelta(minutes=15 * var_dep)).strftime("%d/%m/%Y")
                 + "#D",
             }
             for (m_dep, n_dep), var_dep in t_dep.items()
@@ -1070,23 +1061,17 @@ def ecriture_donnees_sortie(
                 "Id tâche": "DEG_"
                 + n_dep
                 + "#"
-                + (Constantes.BASE_TIME + timedelta(minutes=15 * var_dep)).strftime(
-                    "%d/%m/%Y"
-                )
+                + (monday + timedelta(minutes=15 * var_dep)).strftime("%d/%m/%Y")
                 + "#D",
                 "Type de tâche": "DEG",
-                "Jour": (
-                    Constantes.BASE_TIME + timedelta(minutes=15 * var_dep)
-                ).strftime("%d/%m/%Y"),
-                "Heure de début": (
-                    Constantes.BASE_TIME + timedelta(minutes=15 * var_dep)
-                ).strftime("%H:%M"),
+                "Jour": (monday + timedelta(minutes=15 * var_dep)).strftime("%d/%m/%Y"),
+                "Heure de début": (monday + timedelta(minutes=15 * var_dep)).strftime(
+                    "%H:%M"
+                ),
                 "Durée": Taches.T_DEP[m_dep],
                 "Sillon": n_dep
                 + "#"
-                + (Constantes.BASE_TIME + timedelta(minutes=15 * var_dep)).strftime(
-                    "%d/%m/%Y"
-                )
+                + (monday + timedelta(minutes=15 * var_dep)).strftime("%d/%m/%Y")
                 + "#D",
             }
             for (m_dep, n_dep), var_dep in t_dep.items()
@@ -1147,19 +1132,18 @@ def ecriture_donnees_sortie(
         nb_cycles_agents,
         df_roulement_agent,
         df_taches_humaines,
+        monday,
     )
 
     # Versement des trames vers la feuilles de calcul
     with pd.ExcelWriter(f"{file_name}.xlsx", engine="openpyxl") as writer:
         df_xl.to_excel(writer, sheet_name="Taches machine", index=False)
-        df_xl2.to_excel(
-            writer, sheet_name="Occupation voie chantier", index=False)
+        df_xl2.to_excel(writer, sheet_name="Occupation voie chantier", index=False)
         df_xl3.to_excel(
             writer, sheet_name="Statistiques occupation voie chantier", index=False
         )
         df_xl4.to_excel(writer, sheet_name="Roulements agents", index=False)
-        df_xl5.to_excel(
-            writer, sheet_name="Statistiques roulements", index=False)
+        df_xl5.to_excel(writer, sheet_name="Statistiques roulements", index=False)
 
     return True
 
@@ -1179,6 +1163,7 @@ def ecriture_donnees_sortie_jalon3(
     nombre_cycles_agents: int,
     df_roulement_agent: pd.DataFrame,
     df_taches_humaines: pd.DataFrame,
+    monday: datetime,
 ) -> bool:
     """
     Formate et écrit les données traitées dans une feuille de calcul de sortie.
@@ -1213,6 +1198,8 @@ def ecriture_donnees_sortie_jalon3(
         Informations sur les roulements des agents.
     df_taches_humaines : pd.DataFrame
         Informations sur les tâches effectuées par les agents.
+    monday : datetime
+        Date du lundi de référence.
 
     Retourne :
     ----------
@@ -1242,9 +1229,7 @@ def ecriture_donnees_sortie_jalon3(
             Chaîne de caractères représentant la date et l'heure formatées.
         """
         var_value = int(var.X) if hasattr(var, "X") else int(var)
-        return (Constantes.BASE_TIME + timedelta(minutes=15 * var_value)).strftime(
-            "%d/%m/%Y %H:%M"
-        )
+        return (monday + timedelta(minutes=15 * var_value)).strftime("%d/%m/%Y %H:%M")
 
     xl = (
         [
@@ -1405,31 +1390,24 @@ def ecriture_donnees_sortie_jalon3(
 
     df_xl = pd.DataFrame(xl)
 
-    xl2 = {"Nb de JS activées": [noms_roulements[r]
-                                 for r in noms_roulements.keys()]}
+    xl2 = {"Nb de JS activées": [noms_roulements[r] for r in noms_roulements.keys()]}
 
     nb_jour = nombre_cycles_agents[1] // nb_cycle_jour[1]
 
     for j in range(nb_jour):
-        xl2[(Constantes.BASE_TIME + timedelta(days=j)).strftime(format="%d/%m/%Y")] = [
+        xl2[(monday + timedelta(days=j)).strftime(format="%d/%m/%Y")] = [
             0 for r in noms_roulements.keys()
         ]
     for r in noms_roulements.keys():
         for k in range(1, nombre_cycles_agents[r] + 1):
-            xl2[
-                (Constantes.BASE_TIME + timedelta(minutes=h_deb[r, k])).strftime(
-                    format="%d/%m/%Y"
-                )
-            ][r - 1] += nombre_agents[r, k].X
+            xl2[(monday + timedelta(minutes=h_deb[r, k])).strftime(format="%d/%m/%Y")][
+                r - 1
+            ] += nombre_agents[r, k].X
 
     xl2["Total"] = [
         sum(
             [
-                xl2[
-                    (Constantes.BASE_TIME + timedelta(days=j)).strftime(
-                        format="%d/%m/%Y"
-                    )
-                ][r - 1]
+                xl2[(monday + timedelta(days=j)).strftime(format="%d/%m/%Y")][r - 1]
                 for j in range(nb_jour)
             ]
         )

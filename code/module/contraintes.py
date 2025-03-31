@@ -454,7 +454,7 @@ def contraintes_decomp(
     ):
         for m in Taches.TACHES_DEPART:
             model.addConstr(
-                15 * hat_dep[(m, id_train_dep),] + Taches.T_DEP[m] <= 8 * 60
+                15 * hat_dep[m, id_train_dep] + Taches.T_DEP[m] <= 8 * 60
             )
             model.addConstr(
                 t_dep[

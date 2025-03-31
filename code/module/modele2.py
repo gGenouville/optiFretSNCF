@@ -8,7 +8,9 @@ contraintes temporelles et de succession.
 Fonctions :
 -----------
 init_model : Initialise le modèle Gurobi avec les contraintes de base.
-init_variables: Initialise les variables de décision.
+init_model2 : Initialise le modèle Gurobi avec les contraintes sur l'attribution des tâches aux agents.
+init_variables : Initialise les variables de décision de base.
+init_variables2 : Initialise les variables de décision sur l'attribution des tâches aux agents.
 variables_debut_tache_arrive : Initialise les variables
     de début des tâches pour les trains d'arrivée.
 variables_debut_tache_depart : Initialise les variables
@@ -17,7 +19,17 @@ variable_is_present : Initialise les variables de
     présence des trains sur les différents chantiers.
 variable_premier_wagon : Initialise les variables de temps du début de la première tâche
     de débranchement sur les trains d'arrivée contenant des wagons du train de départ.
-init_objectif : Crée la variable à minimiser de la fonction object ainsi que ses contraintes.
+variable_agents : Initialise les variables représentant le nombre d'agents utilisés
+    sur le cycle k du roulement r.
+variable_who : Initialise les variables binaires who_arr et who_dep représentant 
+    l'utilisation ou non d'un agent d'un roulement r d'un cycle k pour une tache 
+    réalisée m sur un train n à un instant t donné. 
+variable_decomp : Initialise les variables décomposant les variables de début des tâches pour les
+    trains à l'arrivée et au départ en leur numéro de cycle et leur temps dans le cycle.
+init_objectif : Crée la variable à minimiser de la fonction object ainsi que ses contraintes 
+    (minimisation du nombre maximal de voies sur le chantier de Formation).
+init_objectif2 : Crée la variable à minimiser de la fonction object ainsi que ses contraintes 
+    (minimisation du nomnbre de journées de service).
 """
 
 import gurobipy as grb
@@ -440,7 +452,8 @@ def variable_premier_wagon(
         d'arrivée contenant des wagons du train de départ, indexées par identifiant de train de départ.
     """
     premier_wagon = {
-        id_train: model.addVar(vtype=grb.GRB.INTEGER, name=f"premier_wagon_{id_train}")
+        id_train: model.addVar(vtype=grb.GRB.INTEGER,
+                               name=f"premier_wagon_{id_train}")
         for id_train in liste_id_train_depart
     }
     return premier_wagon
@@ -463,13 +476,39 @@ def variable_agents(
 
 
 def variable_who(
-    model,
-    nb_cycles_agents,
-    liste_id_train_arrivee,
-    liste_id_train_depart,
-    equip,
-    h_deb,
+    model: grb.Model,
+    nb_cycles_agents: dict,
+    liste_id_train_arrivee: list,
+    liste_id_train_depart: list,
+    equip: dict,
+    h_deb: dict,
 ):
+    """
+    Définit des variables binaires indiquant si un agent effectue une tâche 
+    d'arrivée ou de départ à un instant donné dans un modèle d'optimisation.
+
+    Paramètres :
+    -----------
+    model : grb.Model
+        Modèle d'optimisation Gurobi.
+    nb_cycles_agents : dict
+        Nombre de cycles pour chaque agent.
+    liste_id_train_arrivee : list
+        Identifiants des trains à l'arrivée.
+    liste_id_train_depart : list
+        Identifiants des trains au départ.
+    equip : dict
+        Agents autorisés pour chaque tâche.
+    h_deb : dict
+        Heures de début des cycles des agents.
+
+    Retourne :
+    ---------
+    tuple[dict, dict]
+        - Variables binaires pour les tâches d'arrivée indexées par tâche, train, agent, cycle et temps.
+        - Variables binaires pour les tâches de départ indexées par tâche, train, agent, cycle et temps.
+    """
+
     who_arr = {
         (m, n, r, k, t): model.addVar(
             vtype=grb.GRB.BINARY,
@@ -557,25 +596,27 @@ def init_objectif(
     nb_cycle_agents: dict,
 ) -> bool:
     """
-    Crée la variable à minimiser de la fonction object ainsi que ses contraintes.
+    Crée la fonction objectif à minimiser ainsi que les contraintes associées.
 
     Paramètres :
     ------------
     model : grb.Model
-        Modèle Gurobi pour ajouter les contraintes.
-    is_present : dict
-        Présence ou non du train id_train sur un chantier.
-    liste_id_train_depart : list
-        Identifiants des trains de départ.
-    temps_min : int
-        Temps d'arrivée du premier train.
-    temps_max : int
-        Temps de départ du dernier train.
+        Modèle Gurobi pour l'optimisation.
+    liste_id_train_arrivee : dict
+        Identifiants des trains à l'arrivée.
+    liste_id_train_depart : dict
+        Identifiants des trains au départ.
+    k_arr : dict
+        Cycles d'affectation des tâches d'arrivée par train.
+    k_dep : dict
+        Cycles d'affectation des tâches de départ par train.
+    nb_cycle_agents : dict
+        Nombre de cycles pour chaque agent.
 
     Retourne :
     ----------
     bool
-        True si la fonction objectif est ajoutée.
+        True si la fonction objectif est bien ajoutée au modèle.
     """
     K = nb_cycle_agents[1]
     M_big = K
@@ -601,29 +642,39 @@ def init_objectif(
     for k in range(K):
         for n in liste_id_train_arrivee:
             for m in Taches.TACHES_ARRIVEE:
-                model.addConstr(k_arr[m, n] - k + eps <= M_big * delta_arr[k, m, n, 1])
+                model.addConstr(k_arr[m, n] - k + eps <=
+                                M_big * delta_arr[k, m, n, 1])
                 model.addConstr(
-                    k - k_arr[m, n] - eps <= M_big * (1 - delta_arr[k, m, n, 1])
+                    k - k_arr[m, n] - eps <= M_big *
+                    (1 - delta_arr[k, m, n, 1])
                 )
-                model.addConstr(k - k_arr[m, n] + eps <= M_big * delta_arr[k, m, n, -1])
+                model.addConstr(k - k_arr[m, n] + eps <=
+                                M_big * delta_arr[k, m, n, -1])
                 model.addConstr(
-                    k_arr[m, n] - k - eps <= M_big * (1 - delta_arr[k, m, n, -1])
+                    k_arr[m, n] - k - eps <= M_big *
+                    (1 - delta_arr[k, m, n, -1])
                 )
                 model.addConstr(
-                    delta_arr[k, m, n, 0]>=delta_arr[k, m, n, 1]+delta_arr[k, m, n, -1]-1
+                    delta_arr[k, m, n, 0] >= delta_arr[k,
+                                                       m, n, 1]+delta_arr[k, m, n, -1]-1
                 )
         for n in liste_id_train_depart:
             for m in Taches.TACHES_DEPART:
-                model.addConstr(k_dep[m, n] - k + eps <= M_big * delta_dep[k, m, n, 1])
+                model.addConstr(k_dep[m, n] - k + eps <=
+                                M_big * delta_dep[k, m, n, 1])
                 model.addConstr(
-                    k - k_dep[m, n] - eps <= M_big * (1 - delta_dep[k, m, n, 1])
+                    k - k_dep[m, n] - eps <= M_big *
+                    (1 - delta_dep[k, m, n, 1])
                 )
-                model.addConstr(k - k_dep[m, n] + eps <= M_big * delta_dep[k, m, n, -1])
+                model.addConstr(k - k_dep[m, n] + eps <=
+                                M_big * delta_dep[k, m, n, -1])
                 model.addConstr(
-                    k_dep[m, n] - k - eps <= M_big * (1 - delta_dep[k, m, n, -1])
+                    k_dep[m, n] - k - eps <= M_big *
+                    (1 - delta_dep[k, m, n, -1])
                 )
                 model.addConstr(
-                    delta_dep[k, m, n, 0]>=delta_dep[k, m, n, 1]+delta_dep[k, m, n, -1]-1
+                    delta_dep[k, m, n, 0] >= delta_dep[k,
+                                                       m, n, 1]+delta_dep[k, m, n, -1]-1
                 )
         model.addConstr(
             max_t
@@ -658,25 +709,23 @@ def init_objectif2(
     nb_cycles_agents: dict,
 ) -> bool:
     """
-    Crée la variable à minimiser de la fonction object ainsi que ses contraintes.
+    Crée la fonction objectif à minimiser ainsi que les contraintes associées.
 
     Paramètres :
     ------------
     model : grb.Model
-        Modèle Gurobi pour ajouter les contraintes.
-    is_present : dict
-        Présence ou non du train id_train sur un chantier.
-    liste_id_train_depart : list
-        Identifiants des trains de départ.
-    temps_min : int
-        Temps d'arrivée du premier train.
-    temps_max : int
-        Temps de départ du dernier train.
+        Modèle Gurobi pour l'optimisation.
+    nombre_agents : dict
+        Variables représentant le nombre d'agents affectés par roulement et cycle.
+    nombre_roulements : int
+        Nombre total de roulements disponibles.
+    nb_cycles_agents : dict
+        Nombre de cycles pour chaque agent.
 
     Retourne :
     ----------
     bool
-        True si la fonction objectif est ajoutée.
+        True si la fonction objectif est bien ajoutée au modèle.
     """
 
     model.setObjective(

@@ -84,26 +84,36 @@ from module.tools import (
 
 def init_dfs(file_path: str):
     """
-    Initialise et charge plusieurs DataFrames à partir d'un fichier Excel.
+    Charge plusieurs DataFrames à partir d'un fichier Excel et initialise 
+    certaines de ses données.
 
-    Cette fonction lit un fichier Excel contenant plusieurs feuilles et extrait
-    les données sous forme de DataFrames spécifiques pour les sillons d'arrivée,
-    les sillons de départ, les correspondances, les chantiers, les machines et
-    le roulement des agents.
+    Paramètres :
+    ------------
+    file_path : str
+        Chemin du fichier Excel à charger.
 
-    Args:
-        file_path (str): Chemin du fichier Excel à charger.
-
-    Returns:
-        tuple: Un tuple contenant les DataFrames suivants :
-            - df (dict): Dictionnaire des DataFrames bruts lus depuis Excel.
-            - df_sil_arr (DataFrame): Données des sillons d'arrivée.
-            - df_sil_dep (DataFrame): Données des sillons de départ.
-            - df_cor (DataFrame): Données des correspondances.
-            - df_chantiers (DataFrame): Données des chantiers.
-            - df_machines (DataFrame): Données des machines.
-            - df_roulement_agent (DataFrame): Données du roulement des agents.
+    Retourne :
+    ----------
+    tuple
+        Un tuple contenant les DataFrames suivants :
+        - df : pd.DataFrame
+            DataFrame brut lu depuis Excel.
+        - df_sil_arr : pd.DataFrame
+            Données des sillons d'arrivée.
+        - df_sil_dep : pd.DataFrame
+            Données des sillons de départ.
+        - df_cor : pd.DataFrame
+            Données des correspondances.
+        - df_chantiers : pd.DataFrame
+            Données des chantiers.
+        - df_machines : pd.DataFrame
+            Données des machines.
+        - df_roulement_agent : pd.DataFrame
+            Données du roulement des agents.
+        - df_taches_humaines : pd.DataFrame
+            Données des tâches humaines.
     """
+
     df = pd.read_excel(file_path, sheet_name=None)
 
     df_sil_arr = init_df_sillon_arr(df)
@@ -131,16 +141,17 @@ def init_dfs(file_path: str):
 
 def init_df_sillon_arr(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Initialise le DataFrame des sillons d'arrivée en convertissant les dates.
+    Initialise le DataFrame des sillons d'arrivée en formatant les dates.
 
-    Cette fonction extrait la feuille correspondant aux sillons d'arrivée et
-    convertit la colonne des dates en format datetime.
+    Paramètres :
+    ------------
+    df : pd.DataFrame
+        Dictionnaire contenant les DataFrames des feuilles Excel.
 
-    Args:
-        df (pd.DataFrame): Dictionnaire contenant les DataFrames des feuilles Excel.
-
-    Returns:
-        pd.DataFrame: DataFrame des sillons d'arrivée avec les dates formatées.
+    Retourne :
+    ----------
+    pd.DataFrame
+        Données des sillons d'arrivée avec les dates formatées.
     """
 
     df_sil_arr = df[Feuilles.SILLONS_ARRIVEE]
@@ -152,16 +163,17 @@ def init_df_sillon_arr(df: pd.DataFrame) -> pd.DataFrame:
 
 def init_df_sillon_dep(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Initialise le DataFrame des sillons de départ en convertissant les dates.
+    Initialise le DataFrame des sillons de départ en formatant les dates.
 
-    Cette fonction extrait la feuille correspondant aux sillons de départ et
-    convertit la colonne des dates en format datetime.
+    Paramètres :
+    ------------
+    df : pd.DataFrame
+        Dictionnaire contenant les DataFrames des feuilles Excel.
 
-    Args:
-        df (pd.DataFrame): Dictionnaire contenant les DataFrames des feuilles Excel.
-
-    Returns:
-        pd.DataFrame: DataFrame des sillons de départ avec les dates formatées.
+    Retourne :
+    ----------
+    pd.DataFrame
+        Données des sillons de départ avec les dates formatées.
     """
     df_sil_dep = df[Feuilles.SILLONS_DEPART]
     df_sil_dep[Colonnes.SILLON_JDEP] = pd.to_datetime(
@@ -174,15 +186,15 @@ def init_df_correspondances(df: pd.DataFrame) -> pd.DataFrame:
     """
     Initialise le DataFrame des correspondances en générant des identifiants uniques.
 
-    Cette fonction extrait la feuille des correspondances, la convertit en chaîne
-    de caractères et crée des identifiants uniques pour les trains d'arrivée et
-    de départ en combinant leur numéro avec le jour du mois de leur date.
+    Paramètres :
+    ------------
+    df : pd.DataFrame
+        Dictionnaire contenant les DataFrames des feuilles Excel.
 
-    Args:
-        df (pd.DataFrame): Dictionnaire contenant les DataFrames des feuilles Excel.
-
-    Returns:
-        pd.DataFrame: DataFrame des correspondances avec les identifiants de trains générés.
+    Retourne :
+    ----------
+    pd.DataFrame
+        Données des correspondances avec les identifiants de trains générés.
     """
     input_df = df[Feuilles.CORRESPONDANCES].copy().astype(str)
 
@@ -212,14 +224,15 @@ def skibidi_mondays(date: datetime) -> datetime:
     """
     Calcule le lundi de la semaine en cours pour une date donnée.
 
-    Cette fonction détermine le lundi de la semaine correspondant à la date
-    fournie en soustrayant le nombre de jours écoulés depuis le dernier lundi.
+    Paramètres :
+    ------------
+    date : datetime
+        Date pour laquelle trouver le lundi de la semaine.
 
-    Args:
-        date (datetime): Date pour laquelle trouver le lundi de la semaine.
-
-    Returns:
-        datetime: Date correspondant au lundi de la même semaine.
+    Retourne :
+    ----------
+    datetime
+        Date correspondant au lundi de la semaine en cours.
     """
     jour_semaine = date.weekday()
     delta = timedelta(days=jour_semaine)
@@ -230,14 +243,15 @@ def init_first_arr(df_sillons_arr: pd.DataFrame) -> datetime:
     """
     Calcule la première date et heure d'arrivée parmi les sillons.
 
-    Cette fonction fusionne les colonnes de date et d'heure d'arrivée en une seule
-    colonne datetime, puis retourne la date et l'heure minimales.
+    Paramètres :
+    ------------
+    df_sillons_arr : pd.DataFrame
+        DataFrame contenant les sillons d'arrivée.
 
-    Args:
-        df_sillons_arr (pd.DataFrame): DataFrame contenant les sillons d'arrivée.
-
-    Returns:
-        datetime: Date et heure de la première arrivée enregistrée.
+    Retourne :
+    ----------
+    datetime
+        Date et heure de la première arrivée enregistrée.
     """
     df_sillons_arr["Datetime"] = pd.to_datetime(
         df_sillons_arr[Colonnes.SILLON_JARR].astype(str)
@@ -251,14 +265,15 @@ def init_last_dep(df_sillons_dep: pd.DataFrame) -> datetime:
     """
     Calcule la dernière date et heure de départ parmi les sillons.
 
-    Cette fonction fusionne les colonnes de date et d'heure de départ en une seule
-    colonne datetime, puis retourne la date et l'heure maximales.
+    Paramètres :
+    ------------
+    df_sillons_dep : pd.DataFrame
+        DataFrame contenant les sillons de départ.
 
-    Args:
-        df_sillons_dep (pd.DataFrame): DataFrame contenant les sillons de départ.
-
-    Returns:
-        datetime: Date et heure du dernier départ enregistré.
+    Retourne :
+    ----------
+    datetime
+        Date et heure du dernier départ enregistré.
     """
     df_sillons_dep["Datetime"] = pd.to_datetime(
         df_sillons_dep[Colonnes.SILLON_JDEP].astype(str)
@@ -272,14 +287,15 @@ def nombre_roulements(df_roulement_agent: pd.DataFrame) -> int:
     """
     Calcule le nombre total de roulements d'agents.
 
-    Cette fonction compte le nombre de valeurs non nulles dans la colonne des
-    roulements d'agents.
+    Paramètres :
+    ------------
+    df_roulement_agent : pd.DataFrame
+        DataFrame contenant les roulements d'agents.
 
-    Args:
-        df_roulement_agent (pd.DataFrame): DataFrame contenant les roulements d'agents.
-
-    Returns:
-        int: Nombre total de roulements enregistrés.
+    Retourne :
+    ----------
+    int
+        Nombre total de roulements enregistrés.
     """
     count = df_roulement_agent[Colonnes.ROULEMENT].count()
     return count
@@ -293,21 +309,23 @@ def init_values(
     """
     Initialise les valeurs temporelles et le nombre de roulements d'agents.
 
-    Cette fonction calcule le temps écoulé en minutes entre le début de la semaine
-    (lundi à 00:00) et la première arrivée ainsi que le dernier départ.
-    Elle retourne également la date du lundi de référence et le nombre de roulements.
+    Paramètres :
+    ------------
+    df_sillons_arr : pd.DataFrame
+        DataFrame contenant les sillons d'arrivée.
+    df_sillons_dep : pd.DataFrame
+        DataFrame contenant les sillons de départ.
+    df_roulement_agent : pd.DataFrame
+        DataFrame contenant les roulements d'agents.
 
-    Args:
-        df_sillons_arr (pd.DataFrame): DataFrame des sillons d'arrivée.
-        df_sillons_dep (pd.DataFrame): DataFrame des sillons de départ.
-        df_roulement_agent (pd.DataFrame): DataFrame des roulements d'agents.
-
-    Returns:
-        tuple[float, float, datetime, int]:
-            - Temps écoulé en minutes jusqu'à la première arrivée.
-            - Temps écoulé en minutes jusqu'au dernier départ.
-            - Date du lundi de référence.
-            - Nombre total de roulements d'agents.
+    Retourne :
+    ----------
+    tuple
+        Un tuple contenant :
+        - float : Temps écoulé en minutes jusqu'à la première arrivée.
+        - float : Temps écoulé en minutes jusqu'au dernier départ.
+        - datetime : Date du lundi de référence.
+        - int : Nombre total de roulements d'agents.
     """
     first_arr = init_first_arr(df_sillons_arr)
     last_dep = init_last_dep(df_sillons_dep)
@@ -335,7 +353,8 @@ def init_dict_t_a(df_sillons_arr: pd.DataFrame) -> dict:
 
     Cette fonction génère un dictionnaire où chaque clé est un identifiant unique
     de train (composé du numéro du train et de la date d'arrivée), et la valeur
-    correspond aux minutes écoulées depuis la date de référence pour chaque train.
+    correspond aux minutes écoulées depuis la date de référence pour chaque train,
+    jusqu'à son arrivée.
 
     Args:
         df_sillons_arr (pd.DataFrame): DataFrame contenant les données des sillons
@@ -357,7 +376,8 @@ def init_dict_t_a(df_sillons_arr: pd.DataFrame) -> dict:
         if pd.notna(date_arr) and heure_arr is not None:
             # Nombre de jours depuis le 08/08
             days_since_ref = (date_arr - Constantes.BASE_TIME).days
-            minutes_since_ref = (days_since_ref * 1440) + heure_arr  # Ajout des minutes
+            minutes_since_ref = (days_since_ref * 1440) + \
+                heure_arr  # Ajout des minutes
 
             # Création d'un ID unique : Train_ID_Date, car certains trains portant le même ID passent sur des jours différents
             train_id_unique = f"{train_id}_{date_arr.strftime('%d')}"
@@ -373,7 +393,8 @@ def init_dict_t_d(df_sillons_dep: pd.DataFrame) -> dict:
 
     Cette fonction génère un dictionnaire où chaque clé est un identifiant unique
     de train (composé du numéro du train et de la date de départ), et la valeur
-    correspond aux minutes écoulées depuis la date de référence pour chaque train.
+    correspond aux minutes écoulées depuis la date de référence pour chaque train,
+    jusqu'à  son départ.
 
     Args:
         df_sillons_dep (pd.DataFrame): DataFrame contenant les données des sillons
@@ -395,7 +416,8 @@ def init_dict_t_d(df_sillons_dep: pd.DataFrame) -> dict:
         if pd.notna(date_dep) and heure_dep is not None:
             # Nombre de jours depuis le 08/08
             days_since_ref = (date_dep - Constantes.BASE_TIME).days
-            minutes_since_ref = (days_since_ref * 1440) + heure_dep  # Ajout des minutes
+            minutes_since_ref = (days_since_ref * 1440) + \
+                heure_dep  # Ajout des minutes
 
             # Création d'un ID unique : Train_ID_Date
             train_id_unique = f"{train_id}_{date_dep.strftime('%d')}"
@@ -446,8 +468,6 @@ def init_dict_limites_chantiers(
     Args:
         df_chantiers (pd.DataFrame): DataFrame contenant les informations des chantiers,
                                      y compris les indisponibilités.
-        df_sillon_dep (pd.DataFrame): DataFrame contenant les sillons de départ pour
-                                      le traitement des données.
         dernier_depart (float): Heure du dernier départ en minutes depuis la référence.
 
     Returns:
@@ -492,8 +512,6 @@ def init_dict_limites_machines(
     Args:
         df_machines (pd.DataFrame): DataFrame contenant les informations des
                                     machines, y compris les indisponibilités.
-        df_sillon_dep (pd.DataFrame): DataFrame contenant les sillons de départ
-                                      pour le traitement des données.
         dernier_depart (float): Heure du dernier départ en minutes depuis
                                 la référence.
 
@@ -508,7 +526,8 @@ def init_dict_limites_machines(
         .apply(lambda x: convertir_en_minutes(x, dernier_depart))
     )
 
-    listes_plates_machines = indisponibilites_machines.apply(lambda x: list(chain(*x)))
+    listes_plates_machines = indisponibilites_machines.apply(
+        lambda x: list(chain(*x)))
 
     limites_machines = []
     for liste in listes_plates_machines:
@@ -673,7 +692,8 @@ def init_dicts_heure_debut_roulement(
     nb_cycle_jour = {r: len(h_deb_jour[r]) for r in h_deb_jour}
 
     jour_de_la_semaine = Constantes.BASE_TIME
-    dernier_jour_de_la_semaine = jour_de_la_semaine + timedelta(days=delta_jours)
+    dernier_jour_de_la_semaine = jour_de_la_semaine + \
+        timedelta(days=delta_jours)
 
     h_deb0 = {i + 1: [] for i in range(nb_roulements)}
 
@@ -832,6 +852,7 @@ def lightning_mcqueen_parser(file_path: str):
             - df_chantiers (pd.DataFrame): Données des chantiers.
             - df_machines (pd.DataFrame): Données des machines.
             - df_roulement_agent (pd.DataFrame): Données des roulements d'agents.
+            - df_taches_humaines (pd.DataFrame): Données des tâches humaines.
             - dict_t_a (dict): Heures d'arrivée des trains.
             - dict_t_d (dict): Heures de départ des trains.
             - dict_correspondances (dict): Correspondances entre trains.
@@ -958,16 +979,16 @@ def ecriture_donnees_sortie(
         Horodatage des points des listes précédentes.
     limites_voies : dict
         Nombre de voies utilisables par chantier.
+    h_deb : dict
+        Horaires de début des cycles des agents.
+    equip : dict
+        Compétences des équipes pour chaque tâche.
+    nb_cycles_agents : dict
+        Nombre de cycles pour chaque roulement.
     who_arr : dict
         Variables indiquant si une tâche d'arrivée est assignée à un agent.
     who_dep : dict
         Variables indiquant si une tâche de départ est assignée à un agent.
-    h_deb : dict
-        Horaires de début des cycles des agents.
-    nb_roulements : int
-        Nombre total de roulements.
-    nb_cycles_agents : dict
-        Nombre de cycles pour chaque roulement.
     liste_id_train_arrivee : list
         Identifiants des trains à l'arrivée.
     liste_id_train_depart : list
@@ -975,15 +996,13 @@ def ecriture_donnees_sortie(
     nombre_agents : dict
         Nombre d'agents du roulement activés pour le cycle.
     nb_cycle_jour :
-        Nombre de cycle par jour du roulement.
-    nombre_cycles_agents :
-        Nombre total de cycle du roulement.
+        Nombre de cycle par jour du roulement. 
     df_roulement_agent : pd.DataFrame
         DataFrame contenant les informations sur les roulements des agents.
     df_taches_humaines : pd.DataFrame
         DataFrame contenant les informations sur les taches des agents.
     file_name : str
-        Nom du fichier de sortie (sans l'extension)
+        Nom du fichier de sortie (sans l'extension)  
 
     Retourne :
     ---------
@@ -1133,70 +1152,72 @@ def ecriture_donnees_sortie(
     # Versement des trames vers la feuilles de calcul
     with pd.ExcelWriter(f"{file_name}.xlsx", engine="openpyxl") as writer:
         df_xl.to_excel(writer, sheet_name="Taches machine", index=False)
-        df_xl2.to_excel(writer, sheet_name="Occupation voie chantier", index=False)
+        df_xl2.to_excel(
+            writer, sheet_name="Occupation voie chantier", index=False)
         df_xl3.to_excel(
             writer, sheet_name="Statistiques occupation voie chantier", index=False
         )
         df_xl4.to_excel(writer, sheet_name="Roulements agents", index=False)
-        df_xl5.to_excel(writer, sheet_name="Statistiques roulements", index=False)
+        df_xl5.to_excel(
+            writer, sheet_name="Statistiques roulements", index=False)
 
     return True
 
 
 def ecriture_donnees_sortie_jalon3(
-    t_arr,
-    t_dep,
-    h_deb,
-    equip,
-    nb_cycles_agents,
-    who_arr,
-    who_dep,
-    liste_id_train_arrivee,
-    liste_id_train_depart,
-    nombre_agents,
-    nb_cycle_jour,
-    nombre_cycles_agents,
-    df_roulement_agent,
-    df_taches_humaines,
-):
+    t_arr: dict,
+    t_dep: dict,
+    h_deb: dict,
+    equip: dict,
+    nb_cycles_agents: dict,
+    who_arr: dict,
+    who_dep: dict,
+    liste_id_train_arrivee: list,
+    liste_id_train_depart: list,
+    nombre_agents: dict,
+    nb_cycle_jour: int,
+    nombre_cycles_agents: int,
+    df_roulement_agent: pd.DataFrame,
+    df_taches_humaines: pd.DataFrame,
+) -> bool:
     """
-    Traite les données pour les mettre dans une feuille de calcul de sortie au format standard.
+    Formate et écrit les données traitées dans une feuille de calcul de sortie.
 
     Paramètres :
-    -----------
+    ------------
     t_arr : dict
         Variables de début des tâches d'arrivée.
-    t_dep: dict
+    t_dep : dict
         Variables de début des tâches de départ.
-    who_arr : dict
-        Variables indiquant si une tâche d'arrivée est assignée à un agent.
-    who_dep : dict
-        Variables indiquant si une tâche de départ est assignée à un agent.
     h_deb : dict
         Horaires de début des cycles des agents.
-    nb_roulements : int
-        Nombre total de roulements.
+    equip : dict
+        Équipement des agents pour chaque tâche.
     nb_cycles_agents : dict
-        Nombre de cycles pour chaque roulement.
+        Nombre de cycles pour chaque roulement d'agent.
+    who_arr : dict
+        Indicateurs d'affectation des tâches d'arrivée aux agents.
+    who_dep : dict
+        Indicateurs d'affectation des tâches de départ aux agents.
     liste_id_train_arrivee : list
         Identifiants des trains à l'arrivée.
     liste_id_train_depart : list
         Identifiants des trains au départ.
     nombre_agents : dict
-        Nombre d'agents du roulement activés pour le cycle.
-    nb_cycle_jour :
-        Nombre de cycle par jour du roulement.
-    nombre_cycles_agents :
-        Nombre total de cycle du roulement.
+        Nombre d'agents actifs pour chaque roulement et cycle.
+    nb_cycle_jour : int
+        Nombre de cycles par jour pour un roulement.
+    nombre_cycles_agents : int
+        Nombre total de cycles par roulement.
     df_roulement_agent : pd.DataFrame
-        DataFrame contenant les informations sur les roulements des agents.
+        Informations sur les roulements des agents.
     df_taches_humaines : pd.DataFrame
-        DataFrame contenant les informations sur les taches des agents.
+        Informations sur les tâches effectuées par les agents.
 
     Retourne :
-    ---------
+    ----------
     bool
-        True si les données sont écrites.
+        True si les données sont correctement écrites.
     """
     noms_roulements = {
         r + 1: df_roulement_agent.at[r, "Roulement"] for r in df_roulement_agent.index
@@ -1206,8 +1227,20 @@ def ecriture_donnees_sortie_jalon3(
         for m in df_taches_humaines.index
     }
 
-    def get_time_string(var):
-        """Convertit une variable Gurobi en une chaîne de date et heure formatée."""
+    def get_time_string(var) -> str:
+        """
+        Convertit une variable Gurobi en chaîne de date et heure formatée.
+
+        Paramètres :
+        ------------
+        var : grb.Var | int
+            Variable Gurobi ou entier représentant un temps en intervalles.
+
+        Retourne :
+        ----------
+        str
+            Chaîne de caractères représentant la date et l'heure formatées.
+        """
         var_value = int(var.X) if hasattr(var, "X") else int(var)
         return (Constantes.BASE_TIME + timedelta(minutes=15 * var_value)).strftime(
             "%d/%m/%Y %H:%M"
@@ -1372,7 +1405,8 @@ def ecriture_donnees_sortie_jalon3(
 
     df_xl = pd.DataFrame(xl)
 
-    xl2 = {"Nb de JS activées": [noms_roulements[r] for r in noms_roulements.keys()]}
+    xl2 = {"Nb de JS activées": [noms_roulements[r]
+                                 for r in noms_roulements.keys()]}
 
     nb_jour = nombre_cycles_agents[1] // nb_cycle_jour[1]
 

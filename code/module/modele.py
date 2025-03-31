@@ -34,7 +34,7 @@ init_objectif2 : Crée la variable à minimiser de la fonction object ainsi que 
 
 import gurobipy as grb
 
-from module.contraintes2 import init_contraintes, init_contraintes2
+from code.module.contraintes import init_contraintes, init_contraintes2
 from module.constants import Chantiers, Taches
 
 

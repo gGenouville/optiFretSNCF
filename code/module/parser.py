@@ -125,7 +125,7 @@ def init_dfs(file_path: str):
         df_chantiers,
         df_machines,
         df_roulement_agent,
-        df_taches_humaines
+        df_taches_humaines,
     )
 
 
@@ -653,7 +653,7 @@ def init_dicts_heure_debut_roulement(
     nb_roulements = df_roulement_agent.shape[0]
 
     delta = last_dep - first_arr
-    delta_jours = ceil(delta / (4 * 24))
+    delta_jours = ceil(delta / (60 * 24))
 
     jour_semaine_disponibilite = {
         i + 1: [int(x) for x in str(row).split(";")]
@@ -854,7 +854,7 @@ def lightning_mcqueen_parser(file_path: str):
         df_chantiers,
         df_machines,
         df_roulement_agent,
-        df_taches_humaines
+        df_taches_humaines,
     ) = init_dfs(file_path)
 
     first_arr, dernier_depart, monday, nb_roulements = init_values(
@@ -937,7 +937,7 @@ def ecriture_donnees_sortie(
     nb_cycle_jour,
     df_roulement_agent,
     df_taches_humaines,
-    file_name
+    file_name,
 ):
     """
     Traite les données pour les mettre dans une feuille de calcul de sortie au format standard.
@@ -997,9 +997,9 @@ def ecriture_donnees_sortie(
                 "Id tâche": "DEB_"
                 + n_arr
                 + "#"
-                + (
-                    Constantes.BASE_TIME + timedelta(minutes=15 * var_arr)
-                ).strftime("%d/%m/%Y")
+                + (Constantes.BASE_TIME + timedelta(minutes=15 * var_arr)).strftime(
+                    "%d/%m/%Y"
+                )
                 + "#A",
                 "Type de tâche": "DEB",
                 "Jour": (
@@ -1011,9 +1011,9 @@ def ecriture_donnees_sortie(
                 "Durée": Taches.T_ARR[m_arr],
                 "Sillon": n_arr
                 + "#"
-                + (
-                    Constantes.BASE_TIME + timedelta(minutes=15 * var_arr)
-                ).strftime("%d/%m/%Y")
+                + (Constantes.BASE_TIME + timedelta(minutes=15 * var_arr)).strftime(
+                    "%d/%m/%Y"
+                )
                 + "#A",
             }
             for (m_arr, n_arr), var_arr in t_arr.items()
@@ -1024,9 +1024,9 @@ def ecriture_donnees_sortie(
                 "Id tâche": "FOR_"
                 + n_dep
                 + "#"
-                + (
-                    Constantes.BASE_TIME + timedelta(minutes=15 * var_dep)
-                ).strftime("%d/%m/%Y")
+                + (Constantes.BASE_TIME + timedelta(minutes=15 * var_dep)).strftime(
+                    "%d/%m/%Y"
+                )
                 + "#D",
                 "Type de tâche": "FOR",
                 "Jour": (
@@ -1038,9 +1038,9 @@ def ecriture_donnees_sortie(
                 "Durée": Taches.T_DEP[m_dep],
                 "Sillon": n_dep
                 + "#"
-                + (
-                    Constantes.BASE_TIME + timedelta(minutes=15 * var_dep)
-                ).strftime("%d/%m/%Y")
+                + (Constantes.BASE_TIME + timedelta(minutes=15 * var_dep)).strftime(
+                    "%d/%m/%Y"
+                )
                 + "#D",
             }
             for (m_dep, n_dep), var_dep in t_dep.items()
@@ -1051,9 +1051,9 @@ def ecriture_donnees_sortie(
                 "Id tâche": "DEG_"
                 + n_dep
                 + "#"
-                + (
-                    Constantes.BASE_TIME + timedelta(minutes=15 * var_dep)
-                ).strftime("%d/%m/%Y")
+                + (Constantes.BASE_TIME + timedelta(minutes=15 * var_dep)).strftime(
+                    "%d/%m/%Y"
+                )
                 + "#D",
                 "Type de tâche": "DEG",
                 "Jour": (
@@ -1065,9 +1065,9 @@ def ecriture_donnees_sortie(
                 "Durée": Taches.T_DEP[m_dep],
                 "Sillon": n_dep
                 + "#"
-                + (
-                    Constantes.BASE_TIME + timedelta(minutes=15 * var_dep)
-                ).strftime("%d/%m/%Y")
+                + (Constantes.BASE_TIME + timedelta(minutes=15 * var_dep)).strftime(
+                    "%d/%m/%Y"
+                )
                 + "#D",
             }
             for (m_dep, n_dep), var_dep in t_dep.items()
@@ -1209,9 +1209,9 @@ def ecriture_donnees_sortie_jalon3(
     def get_time_string(var):
         """Convertit une variable Gurobi en une chaîne de date et heure formatée."""
         var_value = int(var.X) if hasattr(var, "X") else int(var)
-        return (
-            Constantes.BASE_TIME + timedelta(minutes=15 * var_value)
-        ).strftime("%d/%m/%Y %H:%M")
+        return (Constantes.BASE_TIME + timedelta(minutes=15 * var_value)).strftime(
+            "%d/%m/%Y %H:%M"
+        )
 
     xl = (
         [
@@ -1375,21 +1375,32 @@ def ecriture_donnees_sortie_jalon3(
     xl2 = {"Nb de JS activées": [noms_roulements[r] for r in noms_roulements.keys()]}
 
     nb_jour = nombre_cycles_agents[1] // nb_cycle_jour[1]
-    print(nb_jour)
 
     for j in range(nb_jour):
-        xl2[
-            (Constantes.BASE_TIME + timedelta(days=j)).strftime(
-                format="%d/%m/%Y"
-            )
-        ] = [0 for r in noms_roulements.keys()]
+        xl2[(Constantes.BASE_TIME + timedelta(days=j)).strftime(format="%d/%m/%Y")] = [
+            0 for r in noms_roulements.keys()
+        ]
     for r in noms_roulements.keys():
         for k in range(1, nombre_cycles_agents[r] + 1):
             xl2[
-                (
-                    Constantes.BASE_TIME + timedelta(minutes=h_deb[r, k])
-                ).strftime(format="%d/%m/%Y")
+                (Constantes.BASE_TIME + timedelta(minutes=h_deb[r, k])).strftime(
+                    format="%d/%m/%Y"
+                )
             ][r - 1] += nombre_agents[r, k].X
+
+    xl2["Total"] = [
+        sum(
+            [
+                xl2[
+                    (Constantes.BASE_TIME + timedelta(days=j)).strftime(
+                        format="%d/%m/%Y"
+                    )
+                ][r - 1]
+                for j in range(nb_jour)
+            ]
+        )
+        for r in noms_roulements.keys()
+    ]
 
     df_xl2 = pd.DataFrame(xl2)
 
